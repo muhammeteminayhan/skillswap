@@ -23,6 +23,9 @@ public class UserSkillEntity {
     @Column(nullable = false)
     private String skillName;
 
+    @Column(length = 700)
+    private String skillDescription;
+
     @Column(nullable = false)
     private String skillType;
 }

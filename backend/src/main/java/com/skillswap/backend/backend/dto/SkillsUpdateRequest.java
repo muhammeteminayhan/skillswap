@@ -6,6 +6,6 @@ import java.util.List;
 
 @Data
 public class SkillsUpdateRequest {
-    private List<String> offers;
-    private List<String> wants;
+    private List<SkillItemDto> offers;
+    private List<SkillItemDto> wants;
 }

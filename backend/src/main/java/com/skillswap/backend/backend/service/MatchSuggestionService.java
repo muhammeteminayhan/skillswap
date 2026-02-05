@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class MatchSuggestionService {
@@ -19,15 +20,18 @@ public class MatchSuggestionService {
     private final UserProfileRepository userProfileRepository;
     private final UserSkillRepository userSkillRepository;
     private final ExtractService extractService;
+    private final MlModelService mlModelService;
 
     public MatchSuggestionService(
             UserProfileRepository userProfileRepository,
             UserSkillRepository userSkillRepository,
-            ExtractService extractService
+            ExtractService extractService,
+            MlModelService mlModelService
     ) {
         this.userProfileRepository = userProfileRepository;
         this.userSkillRepository = userSkillRepository;
         this.extractService = extractService;
+        this.mlModelService = mlModelService;
     }
 
     public List<MatchSuggestionDto> findMatches(Long requesterId, String text) {
@@ -49,7 +53,12 @@ public class MatchSuggestionService {
 
             int wantMatch = overlapScore(wants, candidateOffers);
             int offerMatch = overlapScore(offers, candidateWants);
-            int score = Math.min(100, 30 + wantMatch * 25 + offerMatch * 20 + candidate.getTrustScore() / 5);
+            int semanticOverlap = semanticCategoryOverlap(wants, candidateOffers) + semanticCategoryOverlap(offers, candidateWants);
+            int semanticSignal = Math.max(wantMatch, semanticOverlap);
+            boolean reciprocal = wantMatch > 0 && offerMatch > 0;
+            double mlScore = mlModelService.semanticScore(semanticSignal, offerMatch, candidate.getTrustScore(), reciprocal);
+            int score = (int) Math.round(mlScore * 100);
+            int tokenSuggested = Math.max(0, (100 - score) * mlModelService.tokenRate() / 10);
 
             MatchSuggestionDto dto = new MatchSuggestionDto();
             dto.setUserId(candidate.getId());
@@ -57,7 +66,10 @@ public class MatchSuggestionService {
             dto.setLocation(candidate.getLocation());
             dto.setTrustScore(candidate.getTrustScore());
             dto.setMatchScore(score);
-            dto.setReason(reasonText(wantMatch, offerMatch, candidateOffers, candidateWants));
+            dto.setSemanticScore(Math.min(100, semanticSignal * 25));
+            dto.setFairnessPercent(Math.max(45, Math.min(98, 55 + offerMatch * 20 + (reciprocal ? 15 : 0))));
+            dto.setTokenSuggested(tokenSuggested);
+            dto.setReason(reasonText(wantMatch, offerMatch, candidateOffers, candidateWants, reciprocal));
             result.add(dto);
         }
 
@@ -105,8 +117,42 @@ public class MatchSuggestionService {
         return score;
     }
 
-    private String reasonText(int wantMatch, int offerMatch, List<String> candidateOffers, List<String> candidateWants) {
-        if (wantMatch > 0 && offerMatch > 0) {
+    private int semanticCategoryOverlap(List<String> left, List<String> right) {
+        Map<String, List<String>> categories = mlModelService.semanticCategories();
+        int score = 0;
+        for (String leftItem : left) {
+            String leftCategory = findCategory(leftItem, categories);
+            if (leftCategory == null) {
+                continue;
+            }
+            for (String rightItem : right) {
+                String rightCategory = findCategory(rightItem, categories);
+                if (leftCategory.equals(rightCategory)) {
+                    score++;
+                    break;
+                }
+            }
+        }
+        return score;
+    }
+
+    private String findCategory(String text, Map<String, List<String>> categories) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        for (Map.Entry<String, List<String>> entry : categories.entrySet()) {
+            for (String keyword : entry.getValue()) {
+                if (lower.contains(keyword.toLowerCase(Locale.ROOT))) {
+                    return entry.getKey();
+                }
+            }
+        }
+        return null;
+    }
+
+    private String reasonText(int wantMatch, int offerMatch, List<String> candidateOffers, List<String> candidateWants, boolean reciprocal) {
+        if (reciprocal) {
             return "Karşılıklı ihtiyaç ve yetenek uyumu bulundu.";
         }
         if (wantMatch > 0) {

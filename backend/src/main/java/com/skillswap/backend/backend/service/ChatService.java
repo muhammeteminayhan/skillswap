@@ -3,6 +3,7 @@ package com.skillswap.backend.backend.service;
 import com.skillswap.backend.backend.ai.GeminiClient;
 import com.skillswap.backend.backend.dto.ChatResponse;
 import com.skillswap.backend.backend.dto.MatchSuggestionDto;
+import com.skillswap.backend.backend.dto.MlInsightsResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,10 +13,19 @@ public class ChatService {
 
     private final MatchSuggestionService matchSuggestionService;
     private final GeminiClient geminiClient;
+    private final MlInsightsService mlInsightsService;
+    private final MlModelService mlModelService;
 
-    public ChatService(MatchSuggestionService matchSuggestionService, GeminiClient geminiClient) {
+    public ChatService(
+            MatchSuggestionService matchSuggestionService,
+            GeminiClient geminiClient,
+            MlInsightsService mlInsightsService,
+            MlModelService mlModelService
+    ) {
         this.matchSuggestionService = matchSuggestionService;
         this.geminiClient = geminiClient;
+        this.mlInsightsService = mlInsightsService;
+        this.mlModelService = mlModelService;
     }
 
     public ChatResponse processMessage(Long userId, String message) {
@@ -23,6 +33,7 @@ public class ChatService {
         String safeMessage = message == null ? "" : message.trim();
 
         List<MatchSuggestionDto> suggestions = matchSuggestionService.findMatches(resolvedUserId, safeMessage);
+        MlInsightsResponse insights = mlInsightsService.buildInsights(resolvedUserId);
         String fallbackAnswer = buildFallbackAnswer(suggestions);
 
         String aiAnswer = geminiClient.generateContent(buildAiPrompt(safeMessage, suggestions))
@@ -33,6 +44,9 @@ public class ChatService {
         ChatResponse response = new ChatResponse();
         response.setAnswer(aiAnswer);
         response.setSuggestions(suggestions);
+        response.setCopilotTips(insights.getActions());
+        response.setChurnRiskPercent(insights.getChurnRiskPercent());
+        response.setModelVersion(mlModelService.getVersion());
         return response;
     }
 

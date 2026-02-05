@@ -1,0 +1,80 @@
+{
+  "version": "2026-02-05",
+  "semantic": {
+    "weights": {
+      "wantOverlap": 0.5,
+      "offerOverlap": 0.3,
+      "trust": 0.15,
+      "reciprocity": 0.05
+    },
+    "categories": {
+      "Elektrik": [
+        "elektrik",
+        "priz",
+        "avize",
+        "sigorta",
+        "kablo",
+        "aydınlatma"
+      ],
+      "Tesisat": [
+        "tesisat",
+        "musluk",
+        "su",
+        "kaçağı",
+        "boru",
+        "lavabo"
+      ],
+      "Doğalgaz": [
+        "doğalgaz",
+        "kombi",
+        "petek",
+        "kalorifer",
+        "gaz"
+      ],
+      "PC": [
+        "pc",
+        "bilgisayar",
+        "laptop",
+        "format",
+        "yazıcı",
+        "modem"
+      ],
+      "Boya": [
+        "boya",
+        "duvar",
+        "alçı",
+        "fırça",
+        "iç cephe"
+      ],
+      "Mobilya": [
+        "mobilya",
+        "dolap",
+        "kapı",
+        "menteşe",
+        "montaj",
+        "raf"
+      ]
+    }
+  },
+  "fairnessModel": {
+    "intercept": -30.179382856925574,
+    "hours": 7.45749601184626,
+    "difficulty": 5.506697886636667,
+    "risk": 4.433250340991163,
+    "tokenRate": 10
+  },
+  "churnModel": {
+    "intercept": -2.7746856798054833,
+    "daysInactive": 0.07986513217043945,
+    "openRequests": 0.2831800114120481,
+    "unreadMessages": 0.19283471122225804,
+    "trustScore": -0.03291567392002823
+  },
+  "trustModel": {
+    "intercept": 29.879940024431043,
+    "completionRate": 37.36260488573388,
+    "responseRate": 20.952848864481815,
+    "reviewScore": 6.477366095487246,
+    "cancelRate": -22.39781488290128
+  }
+}

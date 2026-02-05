@@ -17,6 +17,12 @@ public class UserProfileEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(unique = true)
+    private String email;
+
+    @Column(length = 200)
+    private String password;
+
     @Column(nullable = false)
     private String title;
 
@@ -25,6 +31,9 @@ public class UserProfileEntity {
 
     @Column(nullable = false)
     private Integer trustScore;
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer tokenBalance = 0;
 
     @Column(length = 500)
     private String bio;

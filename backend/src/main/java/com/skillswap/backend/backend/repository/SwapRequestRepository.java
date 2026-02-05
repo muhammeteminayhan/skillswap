@@ -7,4 +7,10 @@ import java.util.List;
 
 public interface SwapRequestRepository extends JpaRepository<SwapRequestEntity, Long> {
     List<SwapRequestEntity> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    long countByUserId(Long userId);
+
+    long countByUserIdAndStatus(Long userId, String status);
+
+    SwapRequestEntity findTopByUserIdOrderByCreatedAtDesc(Long userId);
 }

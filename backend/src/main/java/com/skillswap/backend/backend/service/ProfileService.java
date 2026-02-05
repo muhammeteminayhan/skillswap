@@ -2,7 +2,9 @@ package com.skillswap.backend.backend.service;
 
 import com.skillswap.backend.backend.dto.MessageDto;
 import com.skillswap.backend.backend.dto.ProfileResponse;
+import com.skillswap.backend.backend.model.MessageEntity;
 import com.skillswap.backend.backend.model.UserProfileEntity;
+import com.skillswap.backend.backend.repository.MessageRepository;
 import com.skillswap.backend.backend.repository.UserProfileRepository;
 import org.springframework.stereotype.Service;
 
@@ -12,9 +14,11 @@ import java.util.List;
 public class ProfileService {
 
     private final UserProfileRepository userProfileRepository;
+    private final MessageRepository messageRepository;
 
-    public ProfileService(UserProfileRepository userProfileRepository) {
+    public ProfileService(UserProfileRepository userProfileRepository, MessageRepository messageRepository) {
         this.userProfileRepository = userProfileRepository;
+        this.messageRepository = messageRepository;
     }
 
     public ProfileResponse getProfile(Long userId) {
@@ -25,24 +29,24 @@ public class ProfileService {
         response.setTitle(entity.getTitle());
         response.setLocation(entity.getLocation());
         response.setTrustScore(entity.getTrustScore());
+        response.setTokenBalance(entity.getTokenBalance() == null ? 0 : entity.getTokenBalance());
         response.setBio(entity.getBio());
         return response;
     }
 
     public List<MessageDto> listMessages(Long userId) {
-        return List.of(
-                message("Tuncay", "Merhaba, cumartesi tesisat işine uygunum.", "10:45", true),
-                message("Merve", "Kombi bakımı için bu akşam müsaitim.", "Dün", false),
-                message("Selin", "Laptop format desteği karşılığında priz işini konuşalım.", "Dün", false)
-        );
+        return messageRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(this::fromEntity)
+                .toList();
     }
 
-    private MessageDto message(String from, String preview, String time, boolean unread) {
+    private MessageDto fromEntity(MessageEntity entity) {
         MessageDto dto = new MessageDto();
-        dto.setFrom(from);
-        dto.setPreview(preview);
-        dto.setTime(time);
-        dto.setUnread(unread);
+        dto.setFrom(entity.getFromName());
+        dto.setPreview(entity.getPreview());
+        dto.setTime(entity.getTimeLabel());
+        dto.setUnread(Boolean.TRUE.equals(entity.getUnread()));
         return dto;
     }
 
@@ -53,6 +57,7 @@ public class ProfileService {
         fallback.setTitle("Yetenek Takas Üyesi");
         fallback.setLocation("İstanbul");
         fallback.setTrustScore(75);
+        fallback.setTokenBalance(1000);
         fallback.setBio("Profil bulunamadı, varsayılan bilgiler gösteriliyor.");
         return fallback;
     }

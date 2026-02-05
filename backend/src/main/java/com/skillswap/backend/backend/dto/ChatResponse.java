@@ -8,4 +8,7 @@ import java.util.List;
 public class ChatResponse {
     private String answer;
     private List<MatchSuggestionDto> suggestions;
+    private List<String> copilotTips;
+    private Integer churnRiskPercent;
+    private String modelVersion;
 }

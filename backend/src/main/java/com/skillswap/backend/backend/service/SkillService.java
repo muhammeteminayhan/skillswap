@@ -1,5 +1,6 @@
 package com.skillswap.backend.backend.service;
 
+import com.skillswap.backend.backend.dto.SkillItemDto;
 import com.skillswap.backend.backend.dto.SkillsResponse;
 import com.skillswap.backend.backend.dto.SkillsUpdateRequest;
 import com.skillswap.backend.backend.model.UserSkillEntity;
@@ -21,14 +22,14 @@ public class SkillService {
 
     public SkillsResponse getSkills(Long userId) {
         List<UserSkillEntity> skills = userSkillRepository.findByUserId(userId);
-        List<String> offers = new ArrayList<>();
-        List<String> wants = new ArrayList<>();
+        List<SkillItemDto> offers = new ArrayList<>();
+        List<SkillItemDto> wants = new ArrayList<>();
 
         for (UserSkillEntity skill : skills) {
             if ("OFFER".equals(skill.getSkillType())) {
-                offers.add(skill.getSkillName());
+                offers.add(toDto(skill));
             } else if ("WANT".equals(skill.getSkillType())) {
-                wants.add(skill.getSkillName());
+                wants.add(toDto(skill));
             }
         }
 
@@ -44,17 +45,17 @@ public class SkillService {
         userSkillRepository.deleteByUserId(userId);
 
         if (request != null && request.getOffers() != null) {
-            for (String offer : request.getOffers()) {
-                if (offer != null && !offer.isBlank()) {
-                    save(userId, offer.trim(), "OFFER");
+            for (SkillItemDto offer : request.getOffers()) {
+                if (offer != null && offer.getName() != null && !offer.getName().isBlank()) {
+                    save(userId, offer.getName().trim(), cleanDescription(offer.getDescription()), "OFFER");
                 }
             }
         }
 
         if (request != null && request.getWants() != null) {
-            for (String want : request.getWants()) {
-                if (want != null && !want.isBlank()) {
-                    save(userId, want.trim(), "WANT");
+            for (SkillItemDto want : request.getWants()) {
+                if (want != null && want.getName() != null && !want.getName().isBlank()) {
+                    save(userId, want.getName().trim(), cleanDescription(want.getDescription()), "WANT");
                 }
             }
         }
@@ -62,10 +63,25 @@ public class SkillService {
         return getSkills(userId);
     }
 
-    private void save(Long userId, String skillName, String type) {
+    private SkillItemDto toDto(UserSkillEntity entity) {
+        SkillItemDto dto = new SkillItemDto();
+        dto.setName(entity.getSkillName());
+        dto.setDescription(entity.getSkillDescription());
+        return dto;
+    }
+
+    private String cleanDescription(String description) {
+        if (description == null) {
+            return "";
+        }
+        return description.trim();
+    }
+
+    private void save(Long userId, String skillName, String description, String type) {
         UserSkillEntity entity = new UserSkillEntity();
         entity.setUserId(userId);
         entity.setSkillName(skillName);
+        entity.setSkillDescription(description);
         entity.setSkillType(type);
         userSkillRepository.save(entity);
     }

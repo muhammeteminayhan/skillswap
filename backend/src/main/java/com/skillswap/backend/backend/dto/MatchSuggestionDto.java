@@ -9,5 +9,8 @@ public class MatchSuggestionDto {
     private String location;
     private Integer trustScore;
     private Integer matchScore;
+    private Integer semanticScore;
+    private Integer fairnessPercent;
+    private Integer tokenSuggested;
     private String reason;
 }

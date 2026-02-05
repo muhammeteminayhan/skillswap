@@ -7,11 +7,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class FairnessService {
 
-    private static final int TOKEN_RATE = 10;
     private final ExtractService extractService;
+    private final MlModelService mlModelService;
 
-    public FairnessService(ExtractService extractService) {
+    public FairnessService(ExtractService extractService, MlModelService mlModelService) {
         this.extractService = extractService;
+        this.mlModelService = mlModelService;
     }
 
     public FairnessResponse evaluate(String leftTaskText, String rightTaskText) {
@@ -24,7 +25,7 @@ public class FairnessService {
         int min = Math.min(leftValue, rightValue);
         int fairnessPercent = max == 0 ? 100 : (int) Math.round((min * 100.0) / max);
         int deltaValue = Math.abs(leftValue - rightValue);
-        int tokenSuggested = deltaValue * TOKEN_RATE;
+        int tokenSuggested = deltaValue * mlModelService.tokenRate();
 
         FairnessResponse response = new FairnessResponse();
         response.setLeftValue(leftValue);
@@ -41,7 +42,8 @@ public class FairnessService {
         double hours = response.getEstimatedTimeHours() == null ? 1.0 : response.getEstimatedTimeHours();
         int difficulty = response.getDifficulty() == null ? 2 : response.getDifficulty();
         int risk = response.getRisk() == null ? 2 : response.getRisk();
-        return (int) Math.round(hours * (difficulty + risk));
+        double value = mlModelService.predictTaskValue(hours, difficulty, risk);
+        return (int) Math.max(1, Math.round(value));
     }
 
     private String verdictFor(int fairnessPercent) {
