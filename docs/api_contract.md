@@ -12,7 +12,7 @@ curl -X POST http://localhost:8080/extract \
 ```
 
 ## 2) `/fairness` - Takas adalet analizi
-İki görevin değerini kıyaslayıp adalet yüzdesi ve token önerisi döndürür.
+İki görevin değerini kıyaslayıp adalet yüzdesi ve öneri metni döndürür.
 
 ```bash
 curl -X POST http://localhost:8080/fairness \

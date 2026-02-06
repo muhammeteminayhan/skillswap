@@ -21,4 +21,5 @@ public class AuthRegisterRequest {
     private String title;
     private String location;
     private String bio;
+    private String photoUrl;
 }

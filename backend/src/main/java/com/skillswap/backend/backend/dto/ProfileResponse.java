@@ -9,6 +9,6 @@ public class ProfileResponse {
     private String title;
     private String location;
     private Integer trustScore;
-    private Integer tokenBalance;
+    private String photoUrl;
     private String bio;
 }

@@ -11,6 +11,6 @@ public class MatchSuggestionDto {
     private Integer matchScore;
     private Integer semanticScore;
     private Integer fairnessPercent;
-    private Integer tokenSuggested;
     private String reason;
+    private Boolean boost;
 }

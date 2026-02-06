@@ -8,7 +8,6 @@ import com.skillswap.backend.backend.repository.UserProfileRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
-import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -34,7 +33,11 @@ public class AuthService {
         user.setLocation(defaultIfBlank(request.getLocation(), ""));
         user.setBio(defaultIfBlank(request.getBio(), ""));
         user.setTrustScore(50);
-        user.setTokenBalance(500);
+        user.setBoost(false);
+        user.setPhotoUrl(defaultIfBlank(
+                request.getPhotoUrl(),
+                "https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=400&q=80"
+        ));
 
         UserProfileEntity saved = userProfileRepository.save(user);
         return toResponse(saved);
@@ -56,8 +59,7 @@ public class AuthService {
         return new AuthResponse(
                 user.getId(),
                 user.getName(),
-                user.getEmail(),
-                "demo-" + user.getId() + "-" + UUID.randomUUID()
+                user.getEmail()
         );
     }
 

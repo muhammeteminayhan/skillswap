@@ -8,7 +8,6 @@ import java.util.List;
 public class DashboardResponse {
     private String welcomeText;
     private String userName;
-    private Integer tokenBalance;
     private Integer reputation;
     private Integer swapCount;
     private List<StatCardDto> quickStats;

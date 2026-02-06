@@ -1,5 +1,6 @@
 package com.skillswap.backend.backend.controller;
 
+import com.skillswap.backend.backend.dto.BoostActivationResponse;
 import com.skillswap.backend.backend.dto.BoostResponse;
 import com.skillswap.backend.backend.dto.ChainsResponse;
 import com.skillswap.backend.backend.dto.DashboardResponse;
@@ -9,6 +10,7 @@ import com.skillswap.backend.backend.dto.TalentResponse;
 import com.skillswap.backend.backend.service.DemoShowcaseService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -58,5 +60,10 @@ public class DemoController {
     @GetMapping("/boost")
     public BoostResponse boost() {
         return demoShowcaseService.boost();
+    }
+
+    @PostMapping("/boost/activate/{userId}")
+    public BoostActivationResponse activateBoost(@PathVariable Long userId) {
+        return demoShowcaseService.activateBoost(userId);
     }
 }

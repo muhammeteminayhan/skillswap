@@ -2,6 +2,7 @@ package com.skillswap.backend.backend.service;
 
 import com.skillswap.backend.backend.dto.MessageDto;
 import com.skillswap.backend.backend.dto.ProfileResponse;
+import com.skillswap.backend.backend.dto.ProfileUpdateRequest;
 import com.skillswap.backend.backend.model.MessageEntity;
 import com.skillswap.backend.backend.model.UserProfileEntity;
 import com.skillswap.backend.backend.repository.MessageRepository;
@@ -29,7 +30,7 @@ public class ProfileService {
         response.setTitle(entity.getTitle());
         response.setLocation(entity.getLocation());
         response.setTrustScore(entity.getTrustScore());
-        response.setTokenBalance(entity.getTokenBalance() == null ? 0 : entity.getTokenBalance());
+        response.setPhotoUrl(entity.getPhotoUrl());
         response.setBio(entity.getBio());
         return response;
     }
@@ -41,6 +42,18 @@ public class ProfileService {
                 .toList();
     }
 
+    public ProfileResponse updateProfile(Long userId, ProfileUpdateRequest request) {
+        UserProfileEntity entity = userProfileRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Kullanici bulunamadi."));
+        entity.setName(clean(request.getName()));
+        entity.setTitle(clean(request.getTitle()));
+        entity.setLocation(clean(request.getLocation()));
+        entity.setBio(cleanNullable(request.getBio()));
+        entity.setPhotoUrl(cleanNullable(request.getPhotoUrl()));
+        userProfileRepository.save(entity);
+        return getProfile(userId);
+    }
+
     private MessageDto fromEntity(MessageEntity entity) {
         MessageDto dto = new MessageDto();
         dto.setFrom(entity.getFromName());
@@ -50,6 +63,20 @@ public class ProfileService {
         return dto;
     }
 
+    private String clean(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return value.trim();
+    }
+
+    private String cleanNullable(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim();
+    }
+
     private UserProfileEntity fallbackProfile() {
         UserProfileEntity fallback = new UserProfileEntity();
         fallback.setId(1L);
@@ -57,7 +84,7 @@ public class ProfileService {
         fallback.setTitle("Yetenek Takas Üyesi");
         fallback.setLocation("İstanbul");
         fallback.setTrustScore(75);
-        fallback.setTokenBalance(1000);
+        fallback.setPhotoUrl("https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80");
         fallback.setBio("Profil bulunamadı, varsayılan bilgiler gösteriliyor.");
         return fallback;
     }

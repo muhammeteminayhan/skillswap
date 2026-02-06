@@ -8,11 +8,9 @@ import org.springframework.stereotype.Service;
 public class FairnessService {
 
     private final ExtractService extractService;
-    private final MlModelService mlModelService;
 
-    public FairnessService(ExtractService extractService, MlModelService mlModelService) {
+    public FairnessService(ExtractService extractService) {
         this.extractService = extractService;
-        this.mlModelService = mlModelService;
     }
 
     public FairnessResponse evaluate(String leftTaskText, String rightTaskText) {
@@ -25,16 +23,14 @@ public class FairnessService {
         int min = Math.min(leftValue, rightValue);
         int fairnessPercent = max == 0 ? 100 : (int) Math.round((min * 100.0) / max);
         int deltaValue = Math.abs(leftValue - rightValue);
-        int tokenSuggested = deltaValue * mlModelService.tokenRate();
 
         FairnessResponse response = new FairnessResponse();
         response.setLeftValue(leftValue);
         response.setRightValue(rightValue);
         response.setFairnessPercent(fairnessPercent);
         response.setDeltaValue(deltaValue);
-        response.setTokenSuggested(tokenSuggested);
         response.setVerdict(verdictFor(fairnessPercent));
-        response.setSuggestionText(suggestionFor(fairnessPercent, tokenSuggested));
+        response.setSuggestionText(suggestionFor(fairnessPercent));
         return response;
     }
 
@@ -42,7 +38,7 @@ public class FairnessService {
         double hours = response.getEstimatedTimeHours() == null ? 1.0 : response.getEstimatedTimeHours();
         int difficulty = response.getDifficulty() == null ? 2 : response.getDifficulty();
         int risk = response.getRisk() == null ? 2 : response.getRisk();
-        double value = mlModelService.predictTaskValue(hours, difficulty, risk);
+        double value = hours * (difficulty + risk);
         return (int) Math.max(1, Math.round(value));
     }
 
@@ -56,14 +52,13 @@ public class FairnessService {
         return "Dengesiz";
     }
 
-    private String suggestionFor(int fairnessPercent, int tokenSuggested) {
+    private String suggestionFor(int fairnessPercent) {
         if (fairnessPercent >= 90) {
             return "Takas oldukça adil görünüyor.";
         }
         return String.format(
-                "Bu takas %d adil. Dengelemek için yaklaşık %d token önerilir veya ek küçük bir hizmet ekleyebilirsiniz.",
-                fairnessPercent,
-                tokenSuggested
+                "Bu takas %d adil. Dengelemek için ek küçük bir hizmet ekleyebilirsiniz.",
+                fairnessPercent
         );
     }
 }

@@ -29,6 +29,8 @@ class ApiClient {
 
   int _userId() => _session?.userId ?? 1;
 
+  int currentUserId() => _userId();
+
   static String _baseUrl() {
     const envBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
     if (envBaseUrl.isNotEmpty) return envBaseUrl;
@@ -47,7 +49,6 @@ class ApiClient {
       userId: (data['userId'] as num).toInt(),
       name: data['name']?.toString() ?? '',
       email: data['email']?.toString() ?? '',
-      token: data['token']?.toString() ?? '',
     );
   }
 
@@ -73,7 +74,6 @@ class ApiClient {
       userId: (data['userId'] as num).toInt(),
       name: data['name']?.toString() ?? '',
       email: data['email']?.toString() ?? '',
-      token: data['token']?.toString() ?? '',
     );
   }
 
@@ -116,12 +116,45 @@ class ApiClient {
     return Map<String, dynamic>.from(response.data as Map);
   }
 
+  Future<void> activateBoost() async {
+    await dio.post('/api/demo/boost/activate/${_userId()}');
+  }
+
   Future<Map<String, dynamic>> chat(String message) async {
     final response = await dio.post(
       '/api/chat',
       data: {'userId': _userId(), 'message': message},
     );
     return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<List<Map<String, dynamic>>> conversations() async {
+    final response = await dio.get('/api/chat/conversations/${_userId()}');
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> chatThread({
+    required int otherUserId,
+  }) async {
+    final response = await dio.get(
+      '/api/chat/thread',
+      queryParameters: {'userId': _userId(), 'otherUserId': otherUserId},
+    );
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<void> sendDirectMessage({
+    required int toUserId,
+    required String body,
+  }) async {
+    await dio.post(
+      '/api/chat/send',
+      data: {'fromUserId': _userId(), 'toUserId': toUserId, 'body': body},
+    );
   }
 
   Future<List<Map<String, dynamic>>> requests() async {
@@ -135,19 +168,67 @@ class ApiClient {
     await dio.post('/api/requests', data: {'userId': _userId(), 'text': text});
   }
 
+  Future<void> sendSwapFeedback({
+    required int requestId,
+    required bool success,
+  }) async {
+    await dio.post(
+      '/api/requests/$requestId/feedback',
+      data: {'success': success},
+    );
+  }
+
   Future<Map<String, dynamic>> skills() async {
     final response = await dio.get('/api/skills/${_userId()}');
     return Map<String, dynamic>.from(response.data as Map);
   }
 
-  Future<void> updateSkills(
+  Future<Map<String, dynamic>> updateSkills(
     List<Map<String, String>> offers,
     List<Map<String, String>> wants,
   ) async {
-    await dio.put(
+    final response = await dio.put(
       '/api/skills/${_userId()}',
       data: {'offers': offers, 'wants': wants},
     );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<Map<String, String>> addOfferSkill({
+    required String name,
+    required String description,
+  }) async {
+    final response = await dio.post(
+      '/api/skills/${_userId()}/offer',
+      data: {'name': name, 'description': description},
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return {
+      'name': (data['name'] ?? '').toString(),
+      'description': (data['description'] ?? '').toString(),
+      'id': (data['id'] as num?)?.toString() ?? '',
+    };
+  }
+
+  Future<Map<String, String>> updateOfferSkill({
+    required int skillId,
+    required String name,
+    required String description,
+  }) async {
+    final response = await dio.put(
+      '/api/skills/${_userId()}/offer/$skillId',
+      data: {'name': name, 'description': description},
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return {
+      'name': (data['name'] ?? '').toString(),
+      'description': (data['description'] ?? '').toString(),
+      'id': (data['id'] as num?)?.toString() ?? '',
+    };
+  }
+
+  Future<void> deleteOfferSkill(int skillId) async {
+    await dio.delete('/api/skills/${_userId()}/offer/$skillId');
   }
 
   Future<List<Map<String, dynamic>>> messages() async {
@@ -160,5 +241,106 @@ class ApiClient {
   Future<Map<String, dynamic>> profile() async {
     final response = await dio.get('/api/profile/${_userId()}');
     return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<void> updateProfile({
+    required String name,
+    required String title,
+    required String location,
+    required String bio,
+    required String photoUrl,
+  }) async {
+    await dio.put(
+      '/api/profile/${_userId()}',
+      data: {
+        'name': name,
+        'title': title,
+        'location': location,
+        'bio': bio,
+        'photoUrl': photoUrl,
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> listings() async {
+    final response = await dio.get('/api/listings');
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> listingDetail(int listingId) async {
+    final response = await dio.get('/api/listings/$listingId');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<Map<String, dynamic>> createListing({
+    required String profession,
+    required String title,
+    required String description,
+    required String phone,
+    required String location,
+    required String imageUrl,
+  }) async {
+    final response = await dio.post(
+      '/api/listings',
+      data: {
+        'ownerUserId': _userId(),
+        'profession': profession,
+        'title': title,
+        'description': description,
+        'phone': phone,
+        'location': location,
+        'imageUrl': imageUrl,
+      },
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<Map<String, dynamic>> updateListing({
+    required int listingId,
+    required String profession,
+    required String title,
+    required String description,
+    required String phone,
+    required String location,
+    required String imageUrl,
+  }) async {
+    final response = await dio.put(
+      '/api/listings/$listingId',
+      data: {
+        'ownerUserId': _userId(),
+        'profession': profession,
+        'title': title,
+        'description': description,
+        'phone': phone,
+        'location': location,
+        'imageUrl': imageUrl,
+      },
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<void> deleteListing(int listingId) async {
+    await dio.delete(
+      '/api/listings/$listingId',
+      queryParameters: {'ownerUserId': _userId()},
+    );
+  }
+
+  Future<String> uploadListingImage(String filePath) async {
+    final form = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+    });
+    final response = await dio.post('/api/uploads', data: form);
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return data['url']?.toString() ?? '';
+  }
+
+  String resolveImageUrl(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return '${dio.options.baseUrl}$url';
   }
 }

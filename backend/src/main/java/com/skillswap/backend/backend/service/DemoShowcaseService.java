@@ -1,6 +1,7 @@
 package com.skillswap.backend.backend.service;
 
 import com.skillswap.backend.backend.dto.BoostPlanDto;
+import com.skillswap.backend.backend.dto.BoostActivationResponse;
 import com.skillswap.backend.backend.dto.BoostResponse;
 import com.skillswap.backend.backend.dto.ChainsResponse;
 import com.skillswap.backend.backend.dto.DashboardResponse;
@@ -27,17 +28,20 @@ public class DemoShowcaseService {
     private final SwapRequestRepository swapRequestRepository;
     private final MatchSuggestionService matchSuggestionService;
     private final MlModelService mlModelService;
+    private final HiddenTalentService hiddenTalentService;
 
     public DemoShowcaseService(
             UserProfileRepository userProfileRepository,
             SwapRequestRepository swapRequestRepository,
             MatchSuggestionService matchSuggestionService,
-            MlModelService mlModelService
+            MlModelService mlModelService,
+            HiddenTalentService hiddenTalentService
     ) {
         this.userProfileRepository = userProfileRepository;
         this.swapRequestRepository = swapRequestRepository;
         this.matchSuggestionService = matchSuggestionService;
         this.mlModelService = mlModelService;
+        this.hiddenTalentService = hiddenTalentService;
     }
 
     public DashboardResponse dashboard(Long userId) {
@@ -46,18 +50,16 @@ public class DemoShowcaseService {
         String name = user == null ? "Demo Kullanıcı" : user.getName();
         int reputation = user == null ? 80 : user.getTrustScore();
         int swapCount = (int) swapRequestRepository.countByUserId(id);
-        int tokenBalance = 1000 + reputation * 4;
 
         DashboardResponse response = new DashboardResponse();
         response.setWelcomeText("Tekrar Hoş Geldin");
         response.setUserName(name);
-        response.setTokenBalance(tokenBalance);
         response.setReputation(reputation);
         response.setSwapCount(swapCount);
         response.setQuickStats(List.of(
-                stat("Skill Token", String.valueOf(tokenBalance), "+%15 bu hafta"),
                 stat("İtibar", String.valueOf(reputation), "+5 bu ay"),
-                stat("Açık Takas", String.valueOf(swapCount), "AI destekli eşleştirme aktif")
+                stat("Açık Takas", String.valueOf(swapCount), "AI destekli eşleştirme aktif"),
+                stat("Aktif İlan", String.valueOf(Math.max(1, swapCount)), "Yeni ilanlar yayınlandı")
         ));
         response.setHighlights(List.of(
                 highlight("Quantum", "Superposition", "#6E55FF", "#4AB0FF"),
@@ -106,13 +108,10 @@ public class DemoShowcaseService {
     }
 
     public TalentResponse talents(Long userId) {
+        Long id = userId == null ? 1L : userId;
         TalentResponse response = new TalentResponse();
-        response.setIntro("AI profilini analiz etti, doğal yetenek alanlarını öneriyor.");
-        response.setTalents(List.of(
-                talent("Teknik Yazarlık", 85, "Teknik bilgin ve iletişim dilin dokümantasyon için çok uygun."),
-                talent("Saha Koordinasyonu", 79, "Takas yönetiminde planlama ve yönlendirme becerin yüksek."),
-                talent("Müşteri İletişimi", 74, "Net anlatımın sayesinde eşleşmeler hızlı kapanabilir.")
-        ));
+        response.setIntro("Topluluk verisinden ogrenilen beceri birliktelikleri ile senin icin ek yetenek onerileri.");
+        response.setTalents(hiddenTalentService.findHiddenTalents(id));
         return response;
     }
 
@@ -136,6 +135,19 @@ public class DemoShowcaseService {
                 plan("1 Ay Boost", "₺199", List.of("Aylık üst sıralama", "10x profil görüntülenme", "Trend rozeti")),
                 plan("1 Yıl Boost", "₺999", List.of("Yıllık maksimum görünürlük", "Öncelikli eşleşme", "Detaylı performans paneli"))
         ));
+        return response;
+    }
+
+    public BoostActivationResponse activateBoost(Long userId) {
+        Long id = userId == null ? 1L : userId;
+        UserProfileEntity user = userProfileRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Kullanici bulunamadi."));
+        user.setBoost(true);
+        userProfileRepository.save(user);
+
+        BoostActivationResponse response = new BoostActivationResponse();
+        response.setBoost(user.getBoost());
+        response.setMessage("Aktifleştirildi");
         return response;
     }
 

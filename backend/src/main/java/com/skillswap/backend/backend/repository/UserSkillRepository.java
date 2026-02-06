@@ -10,5 +10,9 @@ public interface UserSkillRepository extends JpaRepository<UserSkillEntity, Long
 
     List<UserSkillEntity> findByUserIdAndSkillType(Long userId, String skillType);
 
+    boolean existsByUserIdAndSkillTypeAndSkillNameIgnoreCase(Long userId, String skillType, String skillName);
+
+    List<UserSkillEntity> findBySkillType(String skillType);
+
     void deleteByUserId(Long userId);
 }

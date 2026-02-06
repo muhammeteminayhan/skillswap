@@ -32,8 +32,11 @@ public class UserProfileEntity {
     @Column(nullable = false)
     private Integer trustScore;
 
-    @Column(nullable = false, columnDefinition = "integer default 0")
-    private Integer tokenBalance = 0;
+    @Column(name = "boost")
+    private Boolean boost;
+
+    @Column(length = 500)
+    private String photoUrl;
 
     @Column(length = 500)
     private String bio;

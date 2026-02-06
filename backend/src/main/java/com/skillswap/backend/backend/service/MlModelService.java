@@ -16,13 +16,13 @@ import java.util.Map;
 public class MlModelService {
 
     private final ObjectMapper objectMapper;
+    private final FeedbackService feedbackService;
 
     private String version = "unknown";
     private double fairnessIntercept;
     private double fairnessHours;
     private double fairnessDifficulty;
     private double fairnessRisk;
-    private int tokenRate = 10;
 
     private double churnIntercept;
     private double churnDaysInactive;
@@ -37,8 +37,9 @@ public class MlModelService {
 
     private final Map<String, List<String>> semanticCategories = new HashMap<>();
 
-    public MlModelService(ObjectMapper objectMapper) {
+    public MlModelService(ObjectMapper objectMapper, FeedbackService feedbackService) {
         this.objectMapper = objectMapper;
+        this.feedbackService = feedbackService;
     }
 
     @PostConstruct
@@ -54,7 +55,6 @@ public class MlModelService {
                 fairnessHours = fairness.path("hours").asDouble(1);
                 fairnessDifficulty = fairness.path("difficulty").asDouble(1);
                 fairnessRisk = fairness.path("risk").asDouble(1);
-                tokenRate = fairness.path("tokenRate").asInt(10);
 
                 JsonNode churn = root.path("churnModel");
                 churnIntercept = churn.path("intercept").asDouble(-1);
@@ -87,9 +87,6 @@ public class MlModelService {
         return version;
     }
 
-    public int tokenRate() {
-        return tokenRate;
-    }
 
     public double predictTaskValue(double hours, int difficulty, int risk) {
         return fairnessIntercept + fairnessHours * hours + fairnessDifficulty * difficulty + fairnessRisk * risk;
@@ -110,7 +107,8 @@ public class MlModelService {
                 + semanticOfferOverlap * Math.min(1.0, offerOverlap / 3.0)
                 + semanticTrust * normalizedTrust
                 + semanticReciprocity * (reciprocal ? 1.0 : 0.0);
-        return Math.max(0.0, Math.min(1.0, score));
+        double adjusted = score * feedbackService.feedbackMultiplier();
+        return Math.max(0.0, Math.min(1.0, adjusted));
     }
 
     public Map<String, List<String>> semanticCategories() {

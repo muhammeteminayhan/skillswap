@@ -81,7 +81,7 @@ class _AuthPageState extends State<AuthPage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF032B35), Color(0xFF051C2E)],
+            colors: [Color(0xFFF6FBF8), Color(0xFFE8F6EF)],
           ),
         ),
         child: SafeArea(
@@ -101,11 +101,10 @@ class _AuthPageState extends State<AuthPage> {
                     registerMode
                         ? 'Yeteneklerini paylas, takasa basla.'
                         : 'Tekrar hos geldin. Giris yap.',
-                    style: const TextStyle(color: Colors.white70),
+                    style: const TextStyle(color: Color(0xFF4A5852)),
                   ),
                   const SizedBox(height: 24),
                   Card(
-                    color: const Color(0xFF073746),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -185,7 +184,7 @@ class _AuthPageState extends State<AuthPage> {
                           const Text(
                             'Giris yaparak KVKK ve Aydinlatma Metni kosullarini kabul etmis olursunuz.',
                             style: TextStyle(
-                              color: Colors.white60,
+                              color: Color(0xFF6B7A72),
                               fontSize: 12,
                             ),
                             textAlign: TextAlign.center,

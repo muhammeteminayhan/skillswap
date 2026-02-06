@@ -8,7 +8,6 @@ public class FairnessResponse {
     private int leftValue;
     private int rightValue;
     private int deltaValue;
-    private int tokenSuggested;
     private String suggestionText;
     private String verdict;
 }

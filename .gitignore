@@ -2,3 +2,5 @@ backend/.env
 .env.properties
 backend/.env.properties
 .env
+backend/uploads/
+uploads/

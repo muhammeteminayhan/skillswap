@@ -16,16 +16,22 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 public class GeminiClient {
 
     private static final Logger log = LoggerFactory.getLogger(GeminiClient.class);
     private static final String ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+    private static final int MAX_RETRY = 3;
+    private static final long BASE_BACKOFF_MS = 600L;
+    private static final long RATE_LIMIT_COOLDOWN_MS = 30_000L;
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String apiKey;
+    private final AtomicLong cooldownUntilMs = new AtomicLong(0L);
 
     public GeminiClient(@Value("${gemini.api.key:}") String apiKey, ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -48,6 +54,11 @@ public class GeminiClient {
             log.warn("Gemini API key missing");
             return Optional.empty();
         }
+        long now = System.currentTimeMillis();
+        if (now < cooldownUntilMs.get()) {
+            log.warn("Gemini cooldown active, skipping call for {} ms", cooldownUntilMs.get() - now);
+            return Optional.empty();
+        }
 
         Map<String, Object> payload = Map.of(
                 "contents", List.of(
@@ -57,44 +68,78 @@ public class GeminiClient {
                 )
         );
 
+        for (int attempt = 1; attempt <= MAX_RETRY; attempt++) {
+            try {
+                ResponseEntity<String> response = restClient.post()
+                        .uri(uriBuilder -> uriBuilder.queryParam("key", apiKey).build())
+                        .body(payload)
+                        .exchange((req, res) -> ResponseEntity.status(res.getStatusCode())
+                                .headers(res.getHeaders())
+                                .body(res.bodyTo(String.class)));
+
+                HttpStatusCode status = response.getStatusCode();
+                String body = response.getBody();
+
+                if (!status.is2xxSuccessful()) {
+                    int statusCode = status.value();
+                    if (statusCode == 429) {
+                        long cooldownUntil = System.currentTimeMillis() + RATE_LIMIT_COOLDOWN_MS;
+                        cooldownUntilMs.set(cooldownUntil);
+                        log.warn("Gemini rate-limited (429), attempt={}, cooldown={}ms, body={}",
+                                attempt, RATE_LIMIT_COOLDOWN_MS, body);
+                    } else {
+                        log.error("Gemini non-OK status: {}, attempt={}, body={}", statusCode, attempt, body);
+                    }
+
+                    if (isRetryableStatus(statusCode) && attempt < MAX_RETRY) {
+                        sleepBackoff(attempt);
+                        continue;
+                    }
+                    return Optional.empty();
+                }
+
+                if (body == null) {
+                    log.error("Gemini empty body with status 200");
+                    return Optional.empty();
+                }
+
+                JsonNode root = objectMapper.readTree(body);
+                JsonNode textNode = root.path("candidates")
+                        .path(0)
+                        .path("content")
+                        .path("parts")
+                        .path(0)
+                        .path("text");
+
+                if (textNode.isMissingNode() || textNode.isNull()) {
+                    log.error("Gemini response missing text node: {}", body);
+                    return Optional.empty();
+                }
+
+                return Optional.ofNullable(textNode.asText());
+            } catch (Exception e) {
+                log.error("Gemini call failed, attempt={}", attempt, e);
+                if (attempt < MAX_RETRY) {
+                    sleepBackoff(attempt);
+                    continue;
+                }
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean isRetryableStatus(int statusCode) {
+        return statusCode == 429 || statusCode == 500 || statusCode == 502 || statusCode == 503 || statusCode == 504;
+    }
+
+    private void sleepBackoff(int attempt) {
+        long jitter = ThreadLocalRandom.current().nextLong(120L, 360L);
+        long backoff = (long) Math.pow(2, attempt - 1) * BASE_BACKOFF_MS + jitter;
         try {
-            ResponseEntity<String> response = restClient.post()
-                    .uri(uriBuilder -> uriBuilder.queryParam("key", apiKey).build())
-                    .body(payload)
-                    .exchange((req, res) -> ResponseEntity.status(res.getStatusCode())
-                            .headers(res.getHeaders())
-                            .body(res.bodyTo(String.class)));
-
-            HttpStatusCode status = response.getStatusCode();
-            String body = response.getBody();
-
-            if (!status.is2xxSuccessful()) {
-                log.error("Gemini non-OK status: {}, body: {}", status.value(), body);
-                return Optional.empty();
-            }
-
-            if (body == null) {
-                log.error("Gemini empty body with status 200");
-                return Optional.empty();
-            }
-
-            JsonNode root = objectMapper.readTree(body);
-            JsonNode textNode = root.path("candidates")
-                    .path(0)
-                    .path("content")
-                    .path("parts")
-                    .path(0)
-                    .path("text");
-
-            if (textNode.isMissingNode() || textNode.isNull()) {
-                log.error("Gemini response missing text node: {}", body);
-                return Optional.empty();
-            }
-
-            return Optional.ofNullable(textNode.asText());
-        } catch (Exception e) {
-            log.error("Gemini call failed", e);
-            return Optional.empty();
+            Thread.sleep(backoff);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
         }
     }
 }

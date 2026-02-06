@@ -38,6 +38,9 @@ public class MatchSuggestionService {
         ExtractResponse extracted = extractService.extract(text);
         List<String> wants = safeList(extracted.getWants());
         List<String> offers = safeList(extracted.getOffers());
+        String requesterLocation = userProfileRepository.findById(requesterId)
+                .map(UserProfileEntity::getLocation)
+                .orElse("");
 
         List<UserProfileEntity> users = userProfileRepository.findAll();
         List<MatchSuggestionDto> result = new ArrayList<>();
@@ -57,24 +60,27 @@ public class MatchSuggestionService {
             int semanticSignal = Math.max(wantMatch, semanticOverlap);
             boolean reciprocal = wantMatch > 0 && offerMatch > 0;
             double mlScore = mlModelService.semanticScore(semanticSignal, offerMatch, candidate.getTrustScore(), reciprocal);
-            int score = (int) Math.round(mlScore * 100);
-            int tokenSuggested = Math.max(0, (100 - score) * mlModelService.tokenRate() / 10);
-
+            boolean sameLocation = sameLocation(requesterLocation, candidate.getLocation());
+            int locationBoost = sameLocation ? 6 : 0;
+            int score = (int) Math.round(mlScore * 100) + locationBoost;
             MatchSuggestionDto dto = new MatchSuggestionDto();
             dto.setUserId(candidate.getId());
             dto.setName(candidate.getName());
             dto.setLocation(candidate.getLocation());
             dto.setTrustScore(candidate.getTrustScore());
-            dto.setMatchScore(score);
+            dto.setMatchScore(Math.max(0, Math.min(100, score)));
             dto.setSemanticScore(Math.min(100, semanticSignal * 25));
             dto.setFairnessPercent(Math.max(45, Math.min(98, 55 + offerMatch * 20 + (reciprocal ? 15 : 0))));
-            dto.setTokenSuggested(tokenSuggested);
-            dto.setReason(reasonText(wantMatch, offerMatch, candidateOffers, candidateWants, reciprocal));
+            dto.setReason(reasonText(wantMatch, offerMatch, candidateOffers, candidateWants, reciprocal, sameLocation));
+            dto.setBoost(Boolean.TRUE.equals(candidate.getBoost()));
             result.add(dto);
         }
 
         return result.stream()
-                .sorted(Comparator.comparingInt(MatchSuggestionDto::getMatchScore).reversed())
+                .sorted(
+                        Comparator.comparing(MatchSuggestionDto::getBoost, Comparator.nullsLast(Comparator.reverseOrder()))
+                                .thenComparing(Comparator.comparingInt(MatchSuggestionDto::getMatchScore).reversed())
+                )
                 .limit(5)
                 .toList();
     }
@@ -151,9 +157,18 @@ public class MatchSuggestionService {
         return null;
     }
 
-    private String reasonText(int wantMatch, int offerMatch, List<String> candidateOffers, List<String> candidateWants, boolean reciprocal) {
+    private String reasonText(
+            int wantMatch,
+            int offerMatch,
+            List<String> candidateOffers,
+            List<String> candidateWants,
+            boolean reciprocal,
+            boolean sameLocation
+    ) {
         if (reciprocal) {
-            return "Karşılıklı ihtiyaç ve yetenek uyumu bulundu.";
+            return sameLocation
+                    ? "Ayni konumda karsilikli ihtiyac ve yetenek uyumu bulundu."
+                    : "Karşılıklı ihtiyaç ve yetenek uyumu bulundu.";
         }
         if (wantMatch > 0) {
             return "İhtiyacın için güçlü yetenek uyumu var: " + candidateOffers.stream().findFirst().orElse("Genel destek");
@@ -161,6 +176,20 @@ public class MatchSuggestionService {
         if (offerMatch > 0) {
             return "Senin sunabildiğin yetenek adayın ihtiyaçlarıyla uyumlu: " + candidateWants.stream().findFirst().orElse("Genel destek");
         }
-        return "Kısmi eşleşme, güven puanı yüksek aday.";
+        return sameLocation
+                ? "Ayni konumda guven puani yuksek aday."
+                : "Kısmi eşleşme, güven puanı yüksek aday.";
+    }
+
+    private boolean sameLocation(String left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        String l = left.trim().toLowerCase(Locale.ROOT);
+        String r = right.trim().toLowerCase(Locale.ROOT);
+        if (l.isEmpty() || r.isEmpty()) {
+            return false;
+        }
+        return l.equals(r) || l.contains(r) || r.contains(l);
     }
 }

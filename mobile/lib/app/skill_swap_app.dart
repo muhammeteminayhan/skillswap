@@ -36,12 +36,82 @@ class _SkillSwapAppState extends State<SkillSwapApp> {
       debugShowCheckedModeBanner: false,
       title: 'SkillSwap',
       theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF032B35),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF24C58E),
-          secondary: Color(0xFF4B7BFF),
-          surface: Color(0xFF063B46),
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: const Color(0xFFF6FBF8),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF1B9C6B),
+          onPrimary: Color(0xFFF7FFFB),
+          secondary: Color(0xFF7BD8B0),
+          onSecondary: Color(0xFF0B3B2A),
+          tertiary: Color(0xFF1D6A56),
+          onTertiary: Color(0xFFF7FFFB),
+          surface: Color(0xFFFFFFFF),
+          onSurface: Color(0xFF1C1F1E),
+          outline: Color(0xFFDDEAE3),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF6FBF8),
+          foregroundColor: Color(0xFF1C1F1E),
+          elevation: 0,
+          centerTitle: false,
+        ),
+        cardTheme: CardThemeData(
+          color: const Color(0xFFFFFFFF),
+          elevation: 1,
+          shadowColor: const Color(0x1A1B9C6B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: Color(0xFFFFFFFF),
+          indicatorColor: Color(0xFF1B9C6B),
+          labelTextStyle: WidgetStatePropertyAll(
+            TextStyle(fontWeight: FontWeight.w400, color: Color(0xFF1C1F1E)),
+          ),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Color(0xFFF1F7F4),
+          border: OutlineInputBorder(),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Color(0xFFDDEAE3)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Color(0xFF1B9C6B), width: 1.4),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF1B9C6B),
+            foregroundColor: const Color(0xFFF7FFFB),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF1B9C6B),
+            side: const BorderSide(color: Color(0xFF1B9C6B)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Color(0xFF1C1F1E)),
+          bodySmall: TextStyle(color: Color(0xFF3A3F3E)),
+          titleMedium: TextStyle(color: Color(0xFF1C1F1E)),
+          titleLarge: TextStyle(color: Color(0xFF1C1F1E)),
+          headlineMedium: TextStyle(
+            color: Color(0xFF1C1F1E),
+            fontWeight: FontWeight.w700,
+          ),
+          headlineSmall: TextStyle(
+            color: Color(0xFF1C1F1E),
+            fontWeight: FontWeight.w700,
+          ),
         ),
         useMaterial3: true,
       ),

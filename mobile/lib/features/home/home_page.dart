@@ -22,6 +22,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? dashboard;
+  String profilePhotoUrl = '';
   bool loading = true;
 
   @override
@@ -32,8 +33,16 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _load() async {
     try {
-      final data = await widget.api.dashboard();
-      setState(() => dashboard = data);
+      final results = await Future.wait([
+        widget.api.dashboard(),
+        widget.api.profile(),
+      ]);
+      final data = results[0] as Map<String, dynamic>;
+      final profile = results[1] as Map<String, dynamic>;
+      setState(() {
+        dashboard = data;
+        profilePhotoUrl = profile['photoUrl']?.toString() ?? '';
+      });
     } finally {
       setState(() => loading = false);
     }
@@ -66,16 +75,17 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 4),
                     Text(
                       widget.session.name,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(color: Colors.white70),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: const Color(0xFF4A5852),
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
-              IconButton.filledTonal(
-                onPressed: () async {
+              InkWell(
+                borderRadius: BorderRadius.circular(22),
+                onTap: () async {
                   final shouldLogout = await Navigator.push<bool>(
                     context,
                     MaterialPageRoute(
@@ -87,7 +97,16 @@ class _HomePageState extends State<HomePage> {
                     widget.onLogout();
                   }
                 },
-                icon: const Icon(Icons.person_rounded),
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: const Color(0xFFE8F6EF),
+                  backgroundImage: profilePhotoUrl.isEmpty
+                      ? null
+                      : NetworkImage(profilePhotoUrl),
+                  child: profilePhotoUrl.isEmpty
+                      ? const Icon(Icons.person_rounded, color: Colors.black54)
+                      : null,
+                ),
               ),
             ],
           ),
@@ -97,13 +116,13 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'AI Skill Matching',
+                  'Yapay Zeka Destekli Eslestirme',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'GPT + Embedding destekli eslesme modlari',
-                  style: TextStyle(color: Colors.white70),
+                  'Gemini + Embedding Destekli Eslestirme Modlari',
+                  style: TextStyle(color: Color(0xFF4A5852)),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -131,7 +150,6 @@ class _HomePageState extends State<HomePage> {
           ...stats.map((e) {
             final m = Map<String, dynamic>.from(e as Map);
             return Card(
-              color: const Color(0xFF0A3B45),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -153,15 +171,32 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _featureButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+      ),
+    );
+  }
+
   Widget _gradientPanel({required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          colors: [Color(0xFF073746), Color(0xFF0A2436)],
+          colors: [Color(0xFFE8F6EF), Color(0xFFF7FCFA)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
       ),
       child: child,
     );
@@ -178,16 +213,11 @@ class AiChatPage extends StatefulWidget {
 }
 
 class _AiChatPageState extends State<AiChatPage> {
-  final TextEditingController _controller = TextEditingController(
-    text:
-        'Tesisatci ariyorum, karsiliginda elektrik isi yapabilirim. Kadikoy cevresi.',
-  );
+  final TextEditingController _controller = TextEditingController();
 
   String answer = 'AI asistan hazir.';
   List<Map<String, dynamic>> suggestions = [];
   List<dynamic> tips = [];
-  int churnRisk = 0;
-  String version = '-';
   bool loading = false;
 
   Future<void> _send() async {
@@ -205,8 +235,6 @@ class _AiChatPageState extends State<AiChatPage> {
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
         tips = data['copilotTips'] as List<dynamic>? ?? [];
-        churnRisk = (data['churnRiskPercent'] as num?)?.toInt() ?? 0;
-        version = data['modelVersion']?.toString() ?? '-';
       });
     } catch (e) {
       setState(() => answer = 'Hata: $e');
@@ -237,10 +265,8 @@ class _AiChatPageState extends State<AiChatPage> {
               child: Text(loading ? 'Gonderiliyor...' : 'AI Eslestir'),
             ),
             const SizedBox(height: 12),
-            _infoCard('AI Yaniti', answer),
+            _infoCard('Destek Asistan Yaniti', answer),
             const SizedBox(height: 8),
-            _infoCard('Model Versiyonu', version),
-            _infoCard('Churn Riski', '%$churnRisk'),
             if (tips.isNotEmpty)
               _infoCard('AI Onerileri', tips.map((e) => '• $e').join('\n')),
             const SizedBox(height: 10),
@@ -250,16 +276,32 @@ class _AiChatPageState extends State<AiChatPage> {
             ),
             const SizedBox(height: 6),
             ...suggestions.map(
-              (m) => Card(
-                color: const Color(0xFF0A3B45),
-                child: ListTile(
-                  title: Text('${m['name']}  (%${m['matchScore']})'),
-                  subtitle: Text(
-                    '${m['reason']}\nSemantik: ${m['semanticScore']} | Fairness: ${m['fairnessPercent']}%',
+              (m) {
+                final bool isBoost = m['boost'] == true;
+                return Card(
+                  color: isBoost ? const Color(0xFFE6F7E6) : null,
+                  child: ListTile(
+                    title: Text(
+                      '${m['name']}  (%${m['matchScore']})',
+                      style: isBoost
+                          ? const TextStyle(fontWeight: FontWeight.w700)
+                          : null,
+                    ),
+                    subtitle: Text(
+                      '${m['reason']}\nAnlamsal Skor: ${m['semanticScore']} | Adalet: %${m['fairnessPercent']}',
+                    ),
+                    trailing: isBoost
+                        ? const Text(
+                            'Premium',
+                            style: TextStyle(
+                              color: Color(0xFF2F7D32),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : null,
                   ),
-                  trailing: Text('${m['tokenSuggested']} tk'),
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),
@@ -269,13 +311,12 @@ class _AiChatPageState extends State<AiChatPage> {
 
   Widget _infoCard(String title, String value) {
     return Card(
-      color: const Color(0xFF0B4555),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(color: Colors.white70)),
+            Text(title, style: const TextStyle(color: Color(0xFF4A5852))),
             const SizedBox(height: 4),
             Text(value),
           ],
@@ -315,6 +356,11 @@ class _ChainsPageState extends State<ChainsPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            const Text(
+              'Yetenek Zincirleri Nedir?\nBir kullanicinin sundugu hizmet digerinin ihtiyacini, onun sundugu hizmet de baska bir kisinin ihtiyacini karsiliyorsa zincir olusur. Bu sayede herkes karsiligini alir.',
+              style: TextStyle(color: Color(0xFF4A5852)),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -363,7 +409,8 @@ class _ChainsPageState extends State<ChainsPage> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: const Color(0xFF0B5A63),
+        color: const Color(0xFFF1F7F4),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,22 +461,27 @@ class _QuantumPageState extends State<QuantumPage> {
         .toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Quantum Matching')),
+      appBar: AppBar(title: const Text('Kuantum Eslestirme')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text(
+              'Kuantum Eslesme Senaryosu:\nBirden fazla olasi eslesme vardir. Sistem, en uygun olasiliklari hesaplar ve seni en yuksek uyuma yaklastirir.',
+              style: TextStyle(color: Color(0xFF4A5852)),
+            ),
+            const SizedBox(height: 10),
             SwitchListTile(
               value: realMatching,
               onChanged: (value) {
                 setState(() => realMatching = value);
                 _load();
               },
-              title: const Text('Gercek Eslesme Modu'),
+              title: const Text('Kuantum Olasilik Modu'),
               subtitle: Text(data!['quantumState']?.toString() ?? ''),
             ),
-            Text('Entanglement: ${data!['entanglements']}'),
+            Text('Dolasiklik Sayisi: ${data!['entanglements']}'),
             const SizedBox(height: 10),
             Expanded(
               child: ListView.builder(
@@ -437,7 +489,6 @@ class _QuantumPageState extends State<QuantumPage> {
                 itemBuilder: (context, index) {
                   final m = matches[index];
                   return Card(
-                    color: const Color(0xFF0B3F56),
                     child: ListTile(
                       title: Text(m['name']?.toString() ?? ''),
                       subtitle: Text(
@@ -491,7 +542,6 @@ class _TalentsPageState extends State<TalentsPage> {
             const SizedBox(height: 12),
             ...talents.map(
               (t) => Card(
-                color: const Color(0xFF153546),
                 child: ListTile(
                   title: Text('${t['title']}  (%${t['matchPercent']})'),
                   subtitle: Text(t['description']?.toString() ?? ''),

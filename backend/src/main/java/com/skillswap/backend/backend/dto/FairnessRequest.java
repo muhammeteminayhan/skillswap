@@ -6,6 +6,4 @@ import lombok.Data;
 public class FairnessRequest {
     private String leftTaskText;
     private String rightTaskText;
-    private Integer leftTokensAvailable;
-    private Integer rightTokensAvailable;
 }
