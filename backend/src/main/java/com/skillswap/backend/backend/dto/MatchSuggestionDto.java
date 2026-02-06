@@ -8,6 +8,7 @@ public class MatchSuggestionDto {
     private String name;
     private String location;
     private Integer trustScore;
+    private String photoUrl;
     private Integer matchScore;
     private Integer semanticScore;
     private Integer fairnessPercent;

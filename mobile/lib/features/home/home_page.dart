@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/auth_session.dart';
 import '../../core/network/api_client.dart';
 import '../profile/profile_page.dart';
+import '../messages/chat_thread_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -589,81 +590,260 @@ class _AiChatPageState extends State<AiChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Destek Asistani')),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(16),
-        child: ListView(
-          children: [
-            TextField(
-              controller: _controller,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: 'Istegini yaz',
-              ),
-            ),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: loading ? null : _send,
-              child: Text(loading ? 'Gonderiliyor...' : 'AI Eslestir'),
-            ),
-            const SizedBox(height: 12),
-            _infoCard('Destek Asistan Yaniti', answer),
-            const SizedBox(height: 8),
-            if (tips.isNotEmpty)
-              _infoCard('AI Onerileri', tips.map((e) => '• $e').join('\n')),
-            const SizedBox(height: 10),
+        children: [
+          _heroPanel(),
+          const SizedBox(height: 14),
+          _inputPanel(),
+          const SizedBox(height: 14),
+          _responsePanel(),
+          const SizedBox(height: 10),
+          const Text(
+            'Eslesme Adaylari',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          if (suggestions.isEmpty)
             const Text(
-              'Eslesme Adaylari',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            ...suggestions.map(
-              (m) {
-                final bool isBoost = m['boost'] == true;
-                return Card(
-                  color: isBoost ? const Color(0xFFE6F7E6) : null,
-                  child: ListTile(
-                    title: Text(
-                      isBoost
-                          ? '${m['name']}'
-                          : '${m['name']}  (%${m['matchScore']})',
-                      style: isBoost
-                          ? const TextStyle(fontWeight: FontWeight.w700)
-                          : null,
-                    ),
-                    subtitle: isBoost
-                        ? const Text('Onayli Profil')
-                        : Text(
-                            '${m['reason']}\nAnlamsal Skor: ${m['semanticScore']} | Adalet: %${m['fairnessPercent']}',
-                          ),
-                    trailing: isBoost
-                        ? const Icon(
-                            Icons.verified_rounded,
-                            color: Color(0xFF2F7D32),
-                          )
-                        : null,
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
+              'Henuz aday bulunamadi. Ihtiyacini netlestirerek tekrar deneyin.',
+              style: TextStyle(color: Color(0xFF6B7A72)),
+            )
+          else
+            ...suggestions.map(_matchCard),
+        ],
       ),
     );
   }
 
-  Widget _infoCard(String title, String value) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(color: Color(0xFF4A5852))),
-            const SizedBox(height: 4),
-            Text(value),
-          ],
+  Widget _heroPanel() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFE8F6EF), Color(0xFFF7FCFA)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 26,
+            backgroundColor: Color(0xFF1B9C6B),
+            child: Icon(Icons.support_agent_rounded, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Yapay Zeka Destekli Asistan',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'İhtiyacini anlat, en uygun eslesmeleri ve akilli ipuclarini al.',
+                  style: TextStyle(color: Color(0xFF4A5852)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _inputPanel() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'İhtiyacın',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _controller,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'Istegini net ve kisa yaz',
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: loading ? null : _send,
+              icon: const Icon(Icons.auto_awesome),
+              label: Text(loading ? 'Gonderiliyor...' : 'AI Eslestir'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _responsePanel() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Destek Asistani Yaniti',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            answer,
+            style: const TextStyle(color: Color(0xFF1C1F1E)),
+          ),
+          if (tips.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'AI Onerileri',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            ...tips.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline,
+                        size: 18, color: Color(0xFF1B9C6B)),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(e.toString())),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _matchCard(Map<String, dynamic> m) {
+    final bool isBoost = m['boost'] == true;
+    final name = m['name']?.toString() ?? 'Kullanici';
+    final reason = m['reason']?.toString() ?? '';
+    final location = m['location']?.toString() ?? '';
+    final trustScore = m['trustScore']?.toString() ?? '-';
+    final photoUrl = m['photoUrl']?.toString() ?? '';
+    final userId = (m['userId'] as num?)?.toInt() ?? 0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isBoost ? const Color(0xFFE6F7E6) : const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: isBoost
+                    ? const Color(0xFF2F7D32)
+                    : const Color(0xFFE8F6EF),
+                backgroundImage:
+                    photoUrl.isEmpty ? null : NetworkImage(photoUrl),
+                child: photoUrl.isEmpty
+                    ? Icon(
+                        isBoost ? Icons.verified_rounded : Icons.person_rounded,
+                        color: isBoost ? Colors.white : const Color(0xFF1B9C6B),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (isBoost)
+                const Text(
+                  'Onayli',
+                  style: TextStyle(
+                    color: Color(0xFF2F7D32),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (isBoost)
+            const Text('Onayli Profil', style: TextStyle(color: Color(0xFF4A5852)))
+          else
+            Text(
+              reason,
+              style: const TextStyle(color: Color(0xFF4A5852)),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (location.isNotEmpty) ...[
+                const Icon(Icons.location_on_outlined,
+                    size: 16, color: Color(0xFF6B7A72)),
+                const SizedBox(width: 4),
+                Text(location, style: const TextStyle(color: Color(0xFF6B7A72))),
+                const SizedBox(width: 10),
+              ],
+              const Icon(Icons.verified_user_outlined,
+                  size: 16, color: Color(0xFF6B7A72)),
+              const SizedBox(width: 4),
+              Text('Guven: $trustScore',
+                  style: const TextStyle(color: Color(0xFF6B7A72))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: userId == 0
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatThreadPage(
+                            api: widget.api,
+                            otherUserId: userId,
+                            otherName: name,
+                          ),
+                        ),
+                      );
+                    },
+              icon: const Icon(Icons.chat_bubble_outline),
+              label: const Text('Mesajlas'),
+            ),
+          ),
+        ],
       ),
     );
   }

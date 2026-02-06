@@ -19,6 +19,7 @@ class _SwapsPageState extends State<SwapsPage> {
   List<Map<String, String>> wants = [];
   Map<String, dynamic>? profile;
   bool loading = true;
+  String? loadError;
   bool savingNeeds = false;
   String query = '';
   String statusFilter = 'Tumu';
@@ -30,25 +31,38 @@ class _SwapsPageState extends State<SwapsPage> {
   }
 
   Future<void> _load() async {
-    final results = await Future.wait([
-      widget.api.swapMatches(),
-      widget.api.skills(),
-      widget.api.requestWants(),
-      widget.api.profile(),
-    ]);
-    final list = results[0] as List<Map<String, dynamic>>;
-    final skills = results[1] as Map<String, dynamic>;
-    final wantsRaw = results[2] as List<String>;
-    final profileData = results[3] as Map<String, dynamic>;
     setState(() {
-      matches = list;
-      offers = _mapSkills(skills['offers']);
-      wants = wantsRaw
-          .map((w) => {'id': w, 'name': w, 'description': ''})
-          .toList();
-      profile = profileData;
-      loading = false;
+      loading = true;
+      loadError = null;
     });
+    try {
+      final results = await Future.wait([
+        widget.api.swapMatches(),
+        widget.api.skills(),
+        widget.api.requestWants(),
+        widget.api.profile(),
+      ]);
+      if (!mounted) return;
+      final list = results[0] as List<Map<String, dynamic>>;
+      final skills = results[1] as Map<String, dynamic>;
+      final wantsRaw = results[2] as List<String>;
+      final profileData = results[3] as Map<String, dynamic>;
+      setState(() {
+        matches = list;
+        offers = _mapSkills(skills['offers']);
+        wants = wantsRaw
+            .map((w) => {'id': w, 'name': w, 'description': ''})
+            .toList();
+        profile = profileData;
+        loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        loadError = 'Veriler yüklenemedi. Lütfen tekrar deneyin.';
+      });
+    }
   }
 
   Future<void> _addNeedFromField() async {
@@ -172,8 +186,44 @@ class _SwapsPageState extends State<SwapsPage> {
               padding: EdgeInsets.only(top: 24),
               child: Center(child: CircularProgressIndicator()),
             )
+          else if (loadError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: _errorCard(loadError!),
+            )
           else
             _matchesPanel(),
+        ],
+      ),
+    );
+  }
+
+  Widget _errorCard(String message) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4F2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFFC5BE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Yükleme Hatası',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: const TextStyle(color: Color(0xFF7A4C46)),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Tekrar Dene'),
+          ),
         ],
       ),
     );

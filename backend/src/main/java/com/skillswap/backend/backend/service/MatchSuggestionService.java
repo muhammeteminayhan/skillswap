@@ -38,8 +38,21 @@ public class MatchSuggestionService {
         ExtractResponse extracted = extractService.extract(text);
         List<String> rawWants = safeList(extracted.getWants());
         List<String> rawOffers = safeList(extracted.getOffers());
+        boolean hasInput = text != null && !text.trim().isBlank();
+        if (rawWants.isEmpty() && rawOffers.isEmpty()) {
+            if (hasInput) {
+                rawWants = List.of(text.trim());
+            } else {
+                List<UserSkillEntity> requesterSkills = userSkillRepository.findByUserId(requesterId);
+                rawWants = filterByTypeRaw(requesterSkills, "WANT");
+                rawOffers = filterByTypeRaw(requesterSkills, "OFFER");
+            }
+        }
         List<String> wants = normalizeList(rawWants);
         List<String> offers = normalizeList(rawOffers);
+        if (wants.isEmpty() && offers.isEmpty()) {
+            return List.of();
+        }
         String requesterLocation = userProfileRepository.findById(requesterId)
                 .map(UserProfileEntity::getLocation)
                 .orElse("");
@@ -79,6 +92,7 @@ public class MatchSuggestionService {
             dto.setName(candidate.getName());
             dto.setLocation(candidate.getLocation());
             dto.setTrustScore(candidate.getTrustScore());
+            dto.setPhotoUrl(candidate.getPhotoUrl());
             dto.setMatchScore(Math.max(0, Math.min(100, score)));
             dto.setSemanticScore(Math.min(100, semanticSignal * 25));
             dto.setFairnessPercent(Math.max(45, Math.min(98, 55 + offerMatch * 20 + (reciprocal ? 15 : 0))));
