@@ -22,7 +22,6 @@ class _SwapsPageState extends State<SwapsPage> {
   bool savingNeeds = false;
   String query = '';
   String statusFilter = 'Tumu';
-  String timelineFilter = 'Tumu';
 
   @override
   void initState() {
@@ -155,6 +154,15 @@ class _SwapsPageState extends State<SwapsPage> {
           const SizedBox(height: 10),
           _filterBar(),
           const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _openTimelinePage,
+              icon: const Icon(Icons.timeline),
+              label: const Text('Takas Surecini Gor'),
+            ),
+          ),
+          const SizedBox(height: 10),
           _notificationPanel(),
           const SizedBox(height: 12),
           _needsPanel(),
@@ -244,7 +252,6 @@ class _SwapsPageState extends State<SwapsPage> {
 
   Widget _filterBar() {
     final statuses = ['Tumu', 'Bekliyor', 'Aktif', 'Tamamlandi'];
-    final timelines = ['Tumu', 'Teklif Edilen', 'Devam Eden', 'Gecmis'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -255,20 +262,6 @@ class _SwapsPageState extends State<SwapsPage> {
             border: OutlineInputBorder(),
           ),
           onChanged: (value) => setState(() => query = value.trim().toLowerCase()),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: timelines
-              .map(
-                (s) => ChoiceChip(
-                  label: Text(s),
-                  selected: timelineFilter == s,
-                  onSelected: (_) => setState(() => timelineFilter = s),
-                ),
-              )
-              .toList(),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -529,15 +522,7 @@ class _SwapsPageState extends State<SwapsPage> {
               other.contains(query);
       final matchesStatus =
           statusFilter == 'Tumu' ? true : status == statusFilter;
-      bool matchesTimeline = true;
-      if (timelineFilter == 'Teklif Edilen') {
-        matchesTimeline = status == 'Bekliyor' && !acceptedByMe && acceptedByOther;
-      } else if (timelineFilter == 'Devam Eden') {
-        matchesTimeline = status == 'Aktif';
-      } else if (timelineFilter == 'Gecmis') {
-        matchesTimeline = status == 'Tamamlandi';
-      }
-      return matchesQuery && matchesStatus && matchesTimeline;
+      return matchesQuery && matchesStatus;
     }).toList();
   }
 
@@ -688,9 +673,18 @@ class _SwapsPageState extends State<SwapsPage> {
                     onPressed: matchId == 0 || acceptedByMe
                         ? null
                         : () async {
-                            await widget.api.acceptSwapMatch(matchId);
-                            if (!mounted) return;
-                            _load();
+                        try {
+                          await widget.api.acceptSwapMatch(matchId);
+                          if (!mounted) return;
+                          _load();
+                        } catch (_) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Kredi yetersiz. Once kredi tamamla.'),
+                            ),
+                          );
+                        }
                           },
                     icon: const Icon(Icons.handshake_outlined),
                     label: Text(
@@ -769,8 +763,18 @@ class _SwapsPageState extends State<SwapsPage> {
     );
   }
 
+  void _openTimelinePage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SwapTimelinePage(api: widget.api),
+      ),
+    );
+  }
+
   Future<void> _openProfile(int userId) async {
     final data = await widget.api.profileById(userId);
+    final reviews = await widget.api.swapReviewsForUser(userId);
     if (!mounted) return;
     showModalBottomSheet(
       context: context,
@@ -824,6 +828,35 @@ class _SwapsPageState extends State<SwapsPage> {
               const SizedBox(height: 10),
               Text('Guven Skoru: ${data['trustScore'] ?? '-'}'),
               const SizedBox(height: 12),
+              if (reviews.isNotEmpty) ...[
+                const Text(
+                  'Yorumlar',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                ...reviews.take(3).map(_reviewCard).toList(),
+                if (reviews.length > 3)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => UserReviewsPage(
+                              api: widget.api,
+                              userId: userId,
+                              userName: data['name']?.toString() ?? 'Kullanici',
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Tum yorumlari gor'),
+                    ),
+                  ),
+              ],
+              const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton(
@@ -835,6 +868,49 @@ class _SwapsPageState extends State<SwapsPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _reviewCard(Map<String, dynamic> review) {
+    final ratingValue = (review['rating'] as num?)?.toInt() ?? 0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            review['fromName']?.toString() ?? 'Kullanici',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: List.generate(5, (i) {
+              final filled = i < ratingValue;
+              return Icon(
+                filled ? Icons.star_rounded : Icons.star_border_rounded,
+                color: const Color(0xFFF4B000),
+                size: 18,
+              );
+            }),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            review['comment']?.toString() ?? '',
+            style: const TextStyle(color: Color(0xFF4A5852)),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            review['createdAt']?.toString() ?? '',
+            style: const TextStyle(color: Color(0xFF6B7A72), fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -855,15 +931,146 @@ class SwapMatchDetailPage extends StatefulWidget {
   State<SwapMatchDetailPage> createState() => _SwapMatchDetailPageState();
 }
 
+class SwapTimelinePage extends StatefulWidget {
+  const SwapTimelinePage({super.key, required this.api});
+
+  final ApiClient api;
+
+  @override
+  State<SwapTimelinePage> createState() => _SwapTimelinePageState();
+}
+
+class _SwapTimelinePageState extends State<SwapTimelinePage> {
+  List<Map<String, dynamic>> matches = [];
+  bool loading = true;
+  String filter = 'Tumu';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final list = await widget.api.swapMatches();
+    setState(() {
+      matches = list;
+      loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Takas Sureci')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _chip('Tumu'),
+                _chip('Devam Eden'),
+                _chip('Tamamlanmis'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      itemCount: _filtered().length,
+                      itemBuilder: (context, i) {
+                        final item = _filtered()[i];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          child: ListTile(
+                            title: Text(_titleFromMatch(item)),
+                            subtitle: Text(
+                              'Durum: ${_statusLabel(item['status']?.toString())}',
+                            ),
+                            trailing: OutlinedButton(
+                              onPressed: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => SwapMatchDetailPage(
+                                      api: widget.api,
+                                      match: item,
+                                      onUpdated: _load,
+                                    ),
+                                  ),
+                                );
+                                _load();
+                              },
+                              child: const Text('Detay'),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String label) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: filter == label,
+      onSelected: (_) => setState(() => filter = label),
+    );
+  }
+
+  List<Map<String, dynamic>> _filtered() {
+    final list = List<Map<String, dynamic>>.from(matches);
+    if (filter == 'Devam Eden') {
+      return list
+          .where((m) => _statusLabel(m['status']?.toString()) == 'Aktif')
+          .toList();
+    }
+    if (filter == 'Tamamlanmis') {
+      return list
+          .where((m) => _statusLabel(m['status']?.toString()) == 'Tamamlandi')
+          .toList();
+    }
+    return list;
+  }
+
+  String _statusLabel(String? raw) {
+    final value = (raw ?? '').toUpperCase();
+    if (value == 'ACCEPTED') return 'Aktif';
+    if (value == 'DONE') return 'Tamamlandi';
+    if (value == 'PENDING') return 'Bekliyor';
+    return 'Bekliyor';
+  }
+
+  String _titleFromMatch(Map<String, dynamic> item) {
+    final wanted = item['myWanted']?.toString() ?? 'Genel destek';
+    final offered = item['myOffered']?.toString() ?? 'Genel destek';
+    return 'Ihtiyacim: $wanted. Karsiliginda $offered sunuyorum.';
+  }
+}
+
 class _SwapMatchDetailPageState extends State<SwapMatchDetailPage> {
   Map<String, dynamic>? profile;
   int rating = 5;
   final TextEditingController commentController = TextEditingController();
+  List<Map<String, dynamic>> reviews = [];
+  int creditBalance = 0;
+  int pricePerCredit = 50;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _loadReviews();
+    _loadCreditBalance();
   }
 
   Future<void> _loadProfile() async {
@@ -874,6 +1081,23 @@ class _SwapMatchDetailPageState extends State<SwapMatchDetailPage> {
     setState(() => profile = data);
   }
 
+  Future<void> _loadReviews() async {
+    final matchId = (widget.match['matchId'] as num?)?.toInt() ?? 0;
+    if (matchId == 0) return;
+    final data = await widget.api.swapReviewsForMatch(matchId);
+    if (!mounted) return;
+    setState(() => reviews = data);
+  }
+
+  Future<void> _loadCreditBalance() async {
+    final data = await widget.api.creditBalance();
+    if (!mounted) return;
+    setState(() {
+      creditBalance = (data['balance'] as num?)?.toInt() ?? 0;
+      pricePerCredit = (data['pricePerCredit'] as num?)?.toInt() ?? 50;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusRaw = (widget.match['status']?.toString() ?? '').toUpperCase();
@@ -881,13 +1105,32 @@ class _SwapMatchDetailPageState extends State<SwapMatchDetailPage> {
     final acceptedByMe = widget.match['acceptedByMe'] == true;
     final acceptedByOther = widget.match['acceptedByOther'] == true;
     final doneByMe = widget.match['doneByMe'] == true;
-    final canReview = widget.match['canReview'] == true;
     final matchId = (widget.match['matchId'] as num?)?.toInt() ?? 0;
+    final myReview = reviews.firstWhere(
+      (r) => (r['fromUserId'] as num?)?.toInt() == widget.api.currentUserId(),
+      orElse: () => {},
+    );
+    final hasMyReview = myReview.isNotEmpty;
+    final canReview =
+        statusRaw == 'DONE' && widget.match['canReview'] == true && !hasMyReview;
     final photoUrl = profile?['photoUrl']?.toString() ?? '';
     final otherName = widget.match['otherName']?.toString() ?? 'Kullanici';
     final otherTitle = profile?['title']?.toString() ?? '';
     final otherLocation = profile?['location']?.toString() ?? '';
     final trustScore = profile?['trustScore']?.toString() ?? '-';
+    final myCredit = (widget.match['myCredit'] as num?)?.toInt() ?? 0;
+    final otherCredit = (widget.match['otherCredit'] as num?)?.toInt() ?? 0;
+    final creditDiff = (widget.match['creditDiff'] as num?)?.toInt() ?? 0;
+    final fairness = (widget.match['fairnessPercent'] as num?)?.toInt() ?? 100;
+    final creditRequiredByMe = widget.match['creditRequiredByMe'] == true;
+    final requiredCredits = (widget.match['requiredCredits'] as num?)?.toInt() ?? 0;
+    final requiredAmount = (widget.match['requiredAmountTl'] as num?)?.toInt() ??
+        (requiredCredits * pricePerCredit);
+    final platformFee =
+        (widget.match['platformFeeAmountTl'] as num?)?.toInt() ?? 0;
+    final payout =
+        (widget.match['payoutAmountTl'] as num?)?.toInt() ?? requiredAmount;
+    final hasEnoughCredits = !creditRequiredByMe || creditBalance >= requiredCredits;
     return Scaffold(
       appBar: AppBar(title: const Text('Takas Detayi')),
       body: ListView(
@@ -976,17 +1219,39 @@ class _SwapMatchDetailPageState extends State<SwapMatchDetailPage> {
           const SizedBox(height: 10),
           _statusBadge(statusText),
           const SizedBox(height: 12),
+          _creditInfoCard(
+            myCredit: myCredit,
+            otherCredit: otherCredit,
+            diff: creditDiff,
+            fairness: fairness,
+            creditRequiredByMe: creditRequiredByMe,
+            requiredCredits: requiredCredits,
+            requiredAmount: requiredAmount,
+            platformFee: platformFee,
+            payout: payout,
+            hasEnoughCredits: hasEnoughCredits,
+          ),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
-                onPressed: matchId == 0 || acceptedByMe
+                onPressed: matchId == 0 || acceptedByMe || !hasEnoughCredits
                     ? null
                     : () async {
-                        await widget.api.acceptSwapMatch(matchId);
-                        widget.onUpdated();
-                        if (context.mounted) Navigator.pop(context);
+                        try {
+                          await widget.api.acceptSwapMatch(matchId);
+                          widget.onUpdated();
+                          if (context.mounted) Navigator.pop(context);
+                        } catch (_) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Kredi yetersiz. Once kredi tamamla.'),
+                            ),
+                          );
+                        }
                       },
                 icon: const Icon(Icons.handshake_outlined),
                 label: Text(
@@ -1027,6 +1292,13 @@ class _SwapMatchDetailPageState extends State<SwapMatchDetailPage> {
               ),
             ],
           ),
+          if (!hasEnoughCredits && creditRequiredByMe) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Takas onayi icin $requiredCredits kredi gerekli. Kredi tamamla.',
+              style: const TextStyle(color: Color(0xFFB76A00)),
+            ),
+          ],
           const SizedBox(height: 12),
           if (canReview)
             Column(
@@ -1067,13 +1339,36 @@ class _SwapMatchDetailPageState extends State<SwapMatchDetailPage> {
                       comment: commentController.text.trim(),
                     );
                     widget.onUpdated();
-                    if (context.mounted) Navigator.pop(context);
+                    await _loadReviews();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Yorumun kaydedildi.')),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.send),
                   label: const Text('Yorumu Gonder'),
                 ),
               ],
             ),
+          if (!canReview && myReview.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Yorumun (degistirilemez)',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            _reviewCard(myReview),
+          ],
+          if (reviews.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Bu Takas Yorumlari',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            ...reviews.map(_reviewCard).toList(),
+          ],
         ],
       ),
     );
@@ -1105,6 +1400,222 @@ class _SwapMatchDetailPageState extends State<SwapMatchDetailPage> {
       child: Text(
         status,
         style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
+  Widget _creditInfoCard({
+    required int myCredit,
+    required int otherCredit,
+    required int diff,
+    required int fairness,
+    required bool creditRequiredByMe,
+    required int requiredCredits,
+    required int requiredAmount,
+    required int platformFee,
+    required int payout,
+    required bool hasEnoughCredits,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Kredi Dengesi',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(child: Text('Senin hizmetin: $myCredit kredi')),
+              Expanded(child: Text('Karsi taraf: $otherCredit kredi')),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Mevcut kredin: $creditBalance kredi'),
+          const SizedBox(height: 6),
+          Text('Fark: $diff kredi'),
+          Text('Adalet skoru: %$fairness'),
+          if (diff > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              creditRequiredByMe
+                  ? 'Bu takasta $requiredCredits kredi tamamlaman gerekiyor.'
+                  : 'Karsi tarafin $requiredCredits kredi tamamlamasi gerekiyor.',
+              style: const TextStyle(color: Color(0xFF4A5852)),
+            ),
+            const SizedBox(height: 6),
+            Text('Tutar: $requiredAmount TL'),
+            Text('Platform hizmet bedeli: $platformFee TL'),
+            Text('Karsi tarafa giden: $payout TL'),
+          ],
+          if (creditRequiredByMe && diff > 0) ...[
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: () async {
+                await widget.api.purchaseCredits(requiredCredits);
+                await _loadCreditBalance();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Kredi satin alimi tamamlandi.')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.credit_card),
+              label: const Text('Kredi Tamamla'),
+            ),
+            if (!hasEnoughCredits)
+              const Text(
+                'Kredi bakiyen yetersiz.',
+                style: TextStyle(color: Color(0xFFB76A00)),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _reviewCard(Map<String, dynamic> review) {
+    final ratingValue = (review['rating'] as num?)?.toInt() ?? 0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            review['fromName']?.toString() ?? 'Kullanici',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: List.generate(5, (i) {
+              final filled = i < ratingValue;
+              return Icon(
+                filled ? Icons.star_rounded : Icons.star_border_rounded,
+                color: const Color(0xFFF4B000),
+                size: 18,
+              );
+            }),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            review['comment']?.toString() ?? '',
+            style: const TextStyle(color: Color(0xFF4A5852)),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            review['createdAt']?.toString() ?? '',
+            style: const TextStyle(color: Color(0xFF6B7A72), fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class UserReviewsPage extends StatefulWidget {
+  const UserReviewsPage({
+    super.key,
+    required this.api,
+    required this.userId,
+    required this.userName,
+  });
+
+  final ApiClient api;
+  final int userId;
+  final String userName;
+
+  @override
+  State<UserReviewsPage> createState() => _UserReviewsPageState();
+}
+
+class _UserReviewsPageState extends State<UserReviewsPage> {
+  List<Map<String, dynamic>> reviews = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final data = await widget.api.swapReviewsForUser(widget.userId);
+    if (!mounted) return;
+    setState(() {
+      reviews = data;
+      loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('${widget.userName} Yorumlari')),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: reviews.isEmpty
+                  ? const [
+                      Center(child: Text('Henuz yorum bulunmuyor.')),
+                    ]
+                  : reviews.map(_reviewCard).toList(),
+            ),
+    );
+  }
+
+  Widget _reviewCard(Map<String, dynamic> review) {
+    final ratingValue = (review['rating'] as num?)?.toInt() ?? 0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            review['fromName']?.toString() ?? 'Kullanici',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: List.generate(5, (i) {
+              final filled = i < ratingValue;
+              return Icon(
+                filled ? Icons.star_rounded : Icons.star_border_rounded,
+                color: const Color(0xFFF4B000),
+                size: 18,
+              );
+            }),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            review['comment']?.toString() ?? '',
+            style: const TextStyle(color: Color(0xFF4A5852)),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            review['createdAt']?.toString() ?? '',
+            style: const TextStyle(color: Color(0xFF6B7A72), fontSize: 12),
+          ),
+        ],
       ),
     );
   }

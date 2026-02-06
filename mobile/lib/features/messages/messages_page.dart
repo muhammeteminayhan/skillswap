@@ -43,7 +43,7 @@ class _MessagesPageState extends State<MessagesPage> {
         const SizedBox(height: 12),
         if (conversations.isEmpty)
           const Text(
-            'Henuz sohbet yok. Ilanlar sekmesinden bir kisiyle iletisime gec.',
+            'Henuz sohbet yok. İlanlar sekmesinden bir kisiyle iletisime gec.',
           ),
         ...conversations.map((m) {
           final unreadCount = (m['unreadCount'] as num?)?.toInt() ?? 0;

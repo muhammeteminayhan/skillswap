@@ -1,10 +1,12 @@
 package com.skillswap.backend.backend.service;
 
 import com.skillswap.backend.backend.model.ChatMessageEntity;
+import com.skillswap.backend.backend.model.CreditRuleEntity;
 import com.skillswap.backend.backend.model.ListingEntity;
 import com.skillswap.backend.backend.model.UserProfileEntity;
 import com.skillswap.backend.backend.model.UserSkillEntity;
 import com.skillswap.backend.backend.repository.ChatMessageRepository;
+import com.skillswap.backend.backend.repository.CreditRuleRepository;
 import com.skillswap.backend.backend.repository.ListingRepository;
 import com.skillswap.backend.backend.repository.UserProfileRepository;
 import com.skillswap.backend.backend.repository.UserSkillRepository;
@@ -23,33 +25,37 @@ public class SkillSwapDataSeeder implements CommandLineRunner {
     private final ListingRepository listingRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final SwapRequestService swapRequestService;
+    private final CreditRuleRepository creditRuleRepository;
 
     public SkillSwapDataSeeder(
             UserProfileRepository userProfileRepository,
             UserSkillRepository userSkillRepository,
             ListingRepository listingRepository,
             ChatMessageRepository chatMessageRepository,
-            SwapRequestService swapRequestService
+            SwapRequestService swapRequestService,
+            CreditRuleRepository creditRuleRepository
     ) {
         this.userProfileRepository = userProfileRepository;
         this.userSkillRepository = userSkillRepository;
         this.listingRepository = listingRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.swapRequestService = swapRequestService;
+        this.creditRuleRepository = creditRuleRepository;
     }
 
     @Override
     public void run(String... args) {
+        seedCreditRules();
         if (userProfileRepository.count() > 0) {
             swapRequestService.rebuildAll();
             return;
         }
 
-        saveUser(1L, "Gokhan", "gokhan@skillswap.demo", "demo123", "Elektrik Ustasi", "Kadikoy", 88, "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80", "Elektrik tesisati, priz ve aydinlatma isleri yapiyorum.");
-        saveUser(2L, "Tuncay", "tuncay@skillswap.demo", "demo123", "Tesisat Ustasi", "Uskudar", 91, "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80", "Su tesisati ve kombi baglantilari.");
-        saveUser(3L, "Merve", "merve@skillswap.demo", "demo123", "Dogalgaz Teknisyeni", "Besiktas", 86, "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=400&q=80", "Kombi bakim ve dogalgaz hatti kontrolu.");
-        saveUser(4L, "Selin", "selin@skillswap.demo", "demo123", "PC Teknik Servis", "Kadikoy", 84, "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=400&q=80", "Laptop format, donanim yukseltme.");
-        saveUser(5L, "Ahmet", "ahmet@skillswap.demo", "demo123", "Boya Ustasi", "Atasehir", 80, "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80", "Ic cephe boya ve alci isleri.");
+        saveUser(1L, "Gokhan", "gokhan@skillswap.demo", "demo123", "Elektrik Ustasi", "Kadikoy", 50, "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80", "Elektrik tesisati, priz ve aydinlatma isleri yapiyorum.");
+        saveUser(2L, "Tuncay", "tuncay@skillswap.demo", "demo123", "Tesisat Ustasi", "Uskudar", 50, "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80", "Su tesisati ve kombi baglantilari.");
+        saveUser(3L, "Merve", "merve@skillswap.demo", "demo123", "Dogalgaz Teknisyeni", "Besiktas", 50, "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=400&q=80", "Kombi bakim ve dogalgaz hatti kontrolu.");
+        saveUser(4L, "Selin", "selin@skillswap.demo", "demo123", "PC Teknik Servis", "Kadikoy", 50, "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=400&q=80", "Laptop format, donanim yukseltme.");
+        saveUser(5L, "Ahmet", "ahmet@skillswap.demo", "demo123", "Boya Ustasi", "Atasehir", 50, "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80", "Ic cephe boya ve alci isleri.");
 
         seedSkills(1L,
                 List.of("Elektrik - priz", "Elektrik - avize montajı", "Elektrik - sigorta"),
@@ -71,6 +77,35 @@ public class SkillSwapDataSeeder implements CommandLineRunner {
 
         seedListings();
         seedMessages();
+    }
+
+    private void seedCreditRules() {
+        if (creditRuleRepository.count() > 0) {
+            return;
+        }
+        saveRule("UI_UX", 80, 70, 95);
+        saveRule("LOGO_TASARIM", 75, 60, 90);
+        saveRule("MOBIL_UYGULAMA", 120, 100, 140);
+        saveRule("WEB_FRONTEND", 90, 75, 110);
+        saveRule("BACKEND", 110, 90, 135);
+        saveRule("KLIMA", 75, 60, 90);
+        saveRule("GOMULU", 120, 100, 145);
+        saveRule("TESISAT", 95, 80, 120);
+        saveRule("ELEKTRIK", 90, 80, 120);
+        saveRule("BOYA", 75, 60, 95);
+        saveRule("DOGALGAZ", 90, 75, 115);
+        saveRule("KOMBI", 85, 70, 110);
+        saveRule("BILGISAYAR", 80, 65, 100);
+        saveRule("TEMIZLIK", 60, 50, 80);
+    }
+
+    private void saveRule(String category, int base, int min, int max) {
+        CreditRuleEntity rule = new CreditRuleEntity();
+        rule.setCategory(category);
+        rule.setBaseCredit(base);
+        rule.setMinCredit(min);
+        rule.setMaxCredit(max);
+        creditRuleRepository.save(rule);
     }
 
     private void saveUser(

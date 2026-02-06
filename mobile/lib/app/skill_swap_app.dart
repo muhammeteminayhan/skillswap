@@ -34,7 +34,7 @@ class _SkillSwapAppState extends State<SkillSwapApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'SkillSwap',
+      title: 'İMECE',
       theme: ThemeData(
         brightness: Brightness.light,
         scaffoldBackgroundColor: const Color(0xFFF6FBF8),

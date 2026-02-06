@@ -92,17 +92,22 @@ class _AuthPageState extends State<AuthPage> {
                 padding: const EdgeInsets.all(20),
                 children: [
                   const SizedBox(height: 24),
-                  const Text(
-                    'SkillSwap',
-                    style: TextStyle(fontSize: 36, fontWeight: FontWeight.w800),
+                  Center(
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    registerMode
-                        ? 'Yeteneklerini paylas, takasa basla.'
-                        : 'Tekrar hos geldin. Giris yap.',
-                    style: const TextStyle(color: Color(0xFF4A5852)),
-                  ),
+                  if (registerMode)
+                    const Text(
+                      'Yeteneklerini paylas, takasa basla.',
+                      style: TextStyle(color: Color(0xFF4A5852)),
+                    ),
                   const SizedBox(height: 24),
                   Card(
                     shape: RoundedRectangleBorder(

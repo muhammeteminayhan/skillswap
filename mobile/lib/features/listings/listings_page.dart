@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../core/network/api_client.dart';
 import '../messages/chat_thread_page.dart';
@@ -103,7 +100,7 @@ class _ListingsPageState extends State<ListingsPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Ilanlar',
+                          'İlanlar',
                           style: Theme.of(context).textTheme.headlineMedium,
                         ),
                       ),
@@ -116,54 +113,54 @@ class _ListingsPageState extends State<ListingsPage> {
                   const SizedBox(height: 8),
                   const Text('Her meslekten uzman burada ilan verebilir.'),
                   const SizedBox(height: 12),
-                  TextField(
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      labelText: 'Ilan, meslek, konum ara',
-                      border: OutlineInputBorder(),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFDDEAE3)),
                     ),
-                    onChanged: (value) =>
-                        setState(() => query = value.trim().toLowerCase()),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      DropdownButton<String>(
-                        value: selectedProfession,
-                        items: _uniqueOptions('profession')
-                            .map(
-                              (v) => DropdownMenuItem(
-                                value: v,
-                                child: Text(v),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) => setState(() {
-                          selectedProfession = v ?? 'Tumu';
-                        }),
-                      ),
-                      DropdownButton<String>(
-                        value: selectedLocation,
-                        items: _uniqueOptions('location')
-                            .map(
-                              (v) => DropdownMenuItem(
-                                value: v,
-                                child: Text(v),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) => setState(() {
-                          selectedLocation = v ?? 'Tumu';
-                        }),
-                      ),
-                      FilterChip(
-                        label: const Text('Sadece benim'),
-                        selected: onlyMine,
-                        onSelected: (v) => setState(() => onlyMine = v),
-                      ),
-                    ],
+                    child: Column(
+                      children: [
+                        TextField(
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.search),
+                            labelText: 'İlan, meslek, konum ara',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) =>
+                              setState(() => query = value.trim().toLowerCase()),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _filterDropdown(
+                              label: 'Meslek',
+                              value: selectedProfession,
+                              items: _uniqueOptions('profession'),
+                              onChanged: (v) => setState(() {
+                                selectedProfession = v ?? 'Tumu';
+                              }),
+                            ),
+                            _filterDropdown(
+                              label: 'Konum',
+                              value: selectedLocation,
+                              items: _uniqueOptions('location'),
+                              onChanged: (v) => setState(() {
+                                selectedLocation = v ?? 'Tumu';
+                              }),
+                            ),
+                            FilterChip(
+                              label: const Text('Sadece benim'),
+                              selected: onlyMine,
+                              onSelected: (v) => setState(() => onlyMine = v),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   ..._filteredListings().map(
@@ -176,6 +173,36 @@ class _ListingsPageState extends State<ListingsPage> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _filterDropdown({
+    required String label,
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FCFA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: DropdownButton<String>(
+        value: value,
+        underline: const SizedBox.shrink(),
+        items: items
+            .map(
+              (v) => DropdownMenuItem(
+                value: v,
+                child: Text(v),
+              ),
+            )
+            .toList(),
+        onChanged: onChanged,
+        hint: Text(label),
+      ),
     );
   }
 }
@@ -235,11 +262,18 @@ class _ListingCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    listing['profession']?.toString() ?? '',
-                    style: const TextStyle(
-                      color: Color(0xFF1B9C6B),
-                      fontWeight: FontWeight.w700,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F6EF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      listing['profession']?.toString() ?? '',
+                      style: const TextStyle(
+                        color: Color(0xFF1B9C6B),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -251,9 +285,21 @@ class _ListingCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    '${listing['ownerName']} • ${listing['location']}',
-                    style: const TextStyle(color: Color(0xFF6B7A72)),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF6B7A72)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          listing['location']?.toString() ?? '',
+                          style: const TextStyle(color: Color(0xFF6B7A72)),
+                        ),
+                      ),
+                      Text(
+                        listing['ownerName']?.toString() ?? '',
+                        style: const TextStyle(color: Color(0xFF6B7A72)),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -315,7 +361,7 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Ilan Detayi'),
+          title: const Text('İlan Detayı'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context, changed),
@@ -323,153 +369,176 @@ class _ListingDetailPageState extends State<ListingDetailPage> {
         ),
         body: ListView(
           children: [
-          SizedBox(
-            height: 220,
-            width: double.infinity,
-            child: imageUrl.isEmpty
-                ? const ColoredBox(color: Color(0xFFE8F6EF))
-                : Image.network(
-                    resolvedUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, _, __) =>
-                        const ColoredBox(color: Color(0xFFE8F6EF)),
-                  ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  detail!['profession']?.toString() ?? '',
-                  style: const TextStyle(
-                    color: Color(0xFF1B9C6B),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  detail!['title']?.toString() ?? '',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(detail!['description']?.toString() ?? ''),
-                const SizedBox(height: 12),
-                Text('Iletisim: ${detail!['phone'] ?? '-'}'),
-                Text('Konum: ${detail!['location'] ?? '-'}'),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () =>
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Telefon numarasi kopyalandi (demo).',
-                                ),
-                              ),
-                            ),
-                        icon: const Icon(Icons.call),
-                        label: const Text('Ara'),
+            SizedBox(
+              height: 220,
+              width: double.infinity,
+              child: imageUrl.isEmpty
+                  ? const ColoredBox(color: Color(0xFFE8F6EF))
+                  : Image.network(
+                      resolvedUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, _, __) =>
+                          const ColoredBox(color: Color(0xFFE8F6EF)),
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F6EF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      detail!['profession']?.toString() ?? '',
+                      style: const TextStyle(
+                        color: Color(0xFF1B9C6B),
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatThreadPage(
-                                api: widget.api,
-                                otherUserId:
-                                    (detail!['ownerUserId'] as num?)?.toInt() ??
-                                    0,
-                                otherName:
-                                    detail!['ownerName']?.toString() ??
-                                    'Kullanici',
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.chat_bubble_outline),
-                        label: const Text('Mesaj Gonder'),
-                      ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    detail!['title']?.toString() ?? '',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
-                if (isOwner) ...[
+                  ),
+                  const SizedBox(height: 10),
+                  Text(detail!['description']?.toString() ?? ''),
                   const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined,
+                          size: 18, color: Color(0xFF6B7A72)),
+                      const SizedBox(width: 6),
+                      Text(detail!['location']?.toString() ?? '-'),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_outlined,
+                          size: 18, color: Color(0xFF6B7A72)),
+                      const SizedBox(width: 6),
+                      Text(detail!['phone']?.toString() ?? '-'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: () async {
-                            final updated = await Navigator.push<bool>(
-                              context,
-                              MaterialPageRoute(
-                        builder: (_) => EditListingPage(
-                                  api: widget.api,
-                                  detail: detail!,
+                          onPressed: () =>
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Telefon numarasi kopyalandi (demo).',
+                                  ),
                                 ),
                               ),
-                            );
-                            if (updated == true) {
-                              changed = true;
-                              _load();
-                            }
-                          },
-                          icon: const Icon(Icons.edit),
-                          label: const Text('Duzenle'),
+                          icon: const Icon(Icons.call),
+                          label: const Text('Ara'),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Ilan silinsin mi?'),
-                                content: const Text(
-                                  'Bu islem geri alinamaz.',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatThreadPage(
+                                  api: widget.api,
+                                  otherUserId:
+                                      (detail!['ownerUserId'] as num?)?.toInt() ??
+                                          0,
+                                  otherName:
+                                      detail!['ownerName']?.toString() ??
+                                          'Kullanici',
                                 ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text('Vazgec'),
-                                  ),
-                                  FilledButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text('Sil'),
-                                  ),
-                                ],
                               ),
                             );
-                            if (confirmed == true) {
-                              await widget.api
-                                  .deleteListing(widget.listingId);
-                              if (!mounted) return;
-                              Navigator.pop(context, true);
-                            }
                           },
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('Sil'),
+                          icon: const Icon(Icons.chat_bubble_outline),
+                          label: const Text('Mesaj Gonder'),
                         ),
                       ),
                     ],
                   ),
+                  if (isOwner) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () async {
+                              final updated = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EditListingPage(
+                                    api: widget.api,
+                                    detail: detail!,
+                                  ),
+                                ),
+                              );
+                              if (updated == true) {
+                                changed = true;
+                                _load();
+                              }
+                            },
+                            icon: const Icon(Icons.edit),
+                            label: const Text('Duzenle'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('İlan silinsin mi?'),
+                                  content: const Text(
+                                    'Bu islem geri alinamaz.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text('Vazgec'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: const Text('Sil'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed == true) {
+                                await widget.api
+                                    .deleteListing(widget.listingId);
+                                if (!mounted) return;
+                                Navigator.pop(context, true);
+                              }
+                            },
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('Sil'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -491,20 +560,26 @@ class _CreateListingPageState extends State<CreateListingPage> {
   final descriptionController = TextEditingController();
   final phoneController = TextEditingController();
   final locationController = TextEditingController();
-  XFile? selectedImage;
+  final imageUrlController = TextEditingController();
+  int creditBalance = 0;
+  int pricePerCredit = 50;
 
   String error = '';
   bool saving = false;
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 82,
-    );
-    if (file != null) {
-      setState(() => selectedImage = file);
-    }
+  @override
+  void initState() {
+    super.initState();
+    _loadCredits();
+  }
+
+  Future<void> _loadCredits() async {
+    final data = await widget.api.creditBalance();
+    if (!mounted) return;
+    setState(() {
+      creditBalance = (data['balance'] as num?)?.toInt() ?? 0;
+      pricePerCredit = (data['pricePerCredit'] as num?)?.toInt() ?? 50;
+    });
   }
 
   Future<void> _submit() async {
@@ -513,22 +588,20 @@ class _CreateListingPageState extends State<CreateListingPage> {
       saving = true;
     });
     try {
-      if (selectedImage == null) {
+      if (imageUrlController.text.trim().isEmpty) {
         setState(() {
-          error = 'Fotograf secmelisiniz.';
+          error = 'Fotograf URL zorunludur.';
           saving = false;
         });
         return;
       }
-      String imageUrl = '';
-      imageUrl = await widget.api.uploadListingImage(selectedImage!.path);
       await widget.api.createListing(
         profession: professionController.text.trim(),
         title: titleController.text.trim(),
         description: descriptionController.text.trim(),
         phone: phoneController.text.trim(),
         location: locationController.text.trim(),
-        imageUrl: imageUrl,
+        imageUrl: imageUrlController.text.trim(),
       );
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -537,7 +610,7 @@ class _CreateListingPageState extends State<CreateListingPage> {
       if (payload is Map && payload['message'] != null) {
         setState(() => error = payload['message'].toString());
       } else {
-        setState(() => error = 'Ilan kaydi basarisiz.');
+        setState(() => error = 'İlan kaydi basarisiz. Kredi bakiyeni kontrol et.');
       }
     } finally {
       if (mounted) {
@@ -549,29 +622,40 @@ class _CreateListingPageState extends State<CreateListingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ilan Ver')),
+      appBar: AppBar(title: const Text('İlan Ver')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _input(professionController, 'Meslek (Orn. Elektrik Ustasi)'),
-          _input(titleController, 'Ilan Basligi'),
-          _input(descriptionController, 'Ilan Detayi', maxLines: 4),
-          _input(phoneController, 'Iletisim Numarasi'),
+          _input(titleController, 'İlan Basligi'),
+          _input(descriptionController, 'İlan Detayi', maxLines: 4),
+          _input(phoneController, 'İletisim Numarasi'),
           _input(locationController, 'Konum'),
           const SizedBox(height: 6),
           Text(
-            'Meslek Fotografı',
+            'Meslek Fotografı (URL)',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          if (selectedImage != null)
+          _input(
+            imageUrlController,
+            'Fotograf URL',
+            onChanged: (_) => setState(() {}),
+          ),
+          if (imageUrlController.text.trim().isNotEmpty)
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                File(selectedImage!.path),
+              child: Image.network(
+                imageUrlController.text.trim(),
                 height: 160,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                errorBuilder: (context, _, __) => Container(
+                  height: 160,
+                  color: const Color(0xFFF1F7F4),
+                  alignment: Alignment.center,
+                  child: const Text('URL ile resim yuklenemedi'),
+                ),
               ),
             )
           else
@@ -582,13 +666,30 @@ class _CreateListingPageState extends State<CreateListingPage> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFDDEAE3)),
               ),
-              child: const Center(child: Text('Fotoğraf seçilmedi')),
+              child: const Center(child: Text('Fotoğraf URL girilmedi')),
             ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _pickImage,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: const Text('Fotograf Sec'),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7FCFA),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFDDEAE3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'İlan Komisyonu',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text('Bu ilan icin 1 kredi komisyon alinacaktir.'),
+                const SizedBox(height: 4),
+                Text('Mevcut bakiyen: $creditBalance kredi'),
+                Text('Komisyon: 1 kredi'),
+              ],
+            ),
           ),
           if (error.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -598,7 +699,9 @@ class _CreateListingPageState extends State<CreateListingPage> {
           FilledButton.icon(
             onPressed: saving ? null : _submit,
             icon: const Icon(Icons.publish),
-            label: Text(saving ? 'Kaydediliyor...' : 'Ilani Yayinla'),
+            label: Text(
+              saving ? 'Kaydediliyor...' : '1 Kredi ile Yayınla',
+            ),
           ),
         ],
       ),
@@ -609,12 +712,14 @@ class _CreateListingPageState extends State<CreateListingPage> {
     TextEditingController controller,
     String label, {
     int maxLines = 1,
+    ValueChanged<String>? onChanged,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         controller: controller,
         maxLines: maxLines,
+        onChanged: onChanged,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
@@ -640,7 +745,7 @@ class _EditListingPageState extends State<EditListingPage> {
   late final TextEditingController descriptionController;
   late final TextEditingController phoneController;
   late final TextEditingController locationController;
-  XFile? selectedImage;
+  late final TextEditingController imageUrlController;
 
   String error = '';
   bool saving = false;
@@ -658,17 +763,8 @@ class _EditListingPageState extends State<EditListingPage> {
         TextEditingController(text: widget.detail['phone']?.toString());
     locationController =
         TextEditingController(text: widget.detail['location']?.toString());
-  }
-
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 82,
-    );
-    if (file != null) {
-      setState(() => selectedImage = file);
-    }
+    imageUrlController =
+        TextEditingController(text: widget.detail['imageUrl']?.toString());
   }
 
   Future<void> _submit() async {
@@ -677,10 +773,7 @@ class _EditListingPageState extends State<EditListingPage> {
       saving = true;
     });
     try {
-      String imageUrl = widget.detail['imageUrl']?.toString() ?? '';
-      if (selectedImage != null) {
-        imageUrl = await widget.api.uploadListingImage(selectedImage!.path);
-      }
+      String imageUrl = imageUrlController.text.trim();
       await widget.api.updateListing(
         listingId: (widget.detail['id'] as num).toInt(),
         profession: professionController.text.trim(),
@@ -697,7 +790,7 @@ class _EditListingPageState extends State<EditListingPage> {
       if (payload is Map && payload['message'] != null) {
         setState(() => error = payload['message'].toString());
       } else {
-        setState(() => error = 'Ilan guncelleme basarisiz.');
+        setState(() => error = 'İlan guncelleme basarisiz.');
       }
     } finally {
       if (mounted) {
@@ -708,59 +801,48 @@ class _EditListingPageState extends State<EditListingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = widget.detail['imageUrl']?.toString() ?? '';
+    final imageUrl = imageUrlController.text.trim();
     final resolvedUrl = widget.api.resolveImageUrl(imageUrl);
     return Scaffold(
-      appBar: AppBar(title: const Text('Ilani Duzenle')),
+      appBar: AppBar(title: const Text('İlanı Duzenle')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _input(professionController, 'Meslek (Orn. Elektrik Ustasi)'),
-          _input(titleController, 'Ilan Basligi'),
-          _input(descriptionController, 'Ilan Detayi', maxLines: 4),
-          _input(phoneController, 'Iletisim Numarasi'),
+          _input(titleController, 'İlan Basligi'),
+          _input(descriptionController, 'İlan Detayi', maxLines: 4),
+          _input(phoneController, 'İletisim Numarasi'),
           _input(locationController, 'Konum'),
           const SizedBox(height: 6),
           Text(
-            'Meslek Fotografı',
+            'Meslek Fotografı (URL)',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          if (selectedImage != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                File(selectedImage!.path),
-                height: 160,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            )
-          else
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: imageUrl.isEmpty
-                  ? const ColoredBox(
+          _input(
+            imageUrlController,
+            'Fotograf URL',
+            onChanged: (_) => setState(() {}),
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: imageUrl.isEmpty
+                ? const ColoredBox(
+                    color: Color(0xFFF1F7F4),
+                    child: SizedBox(height: 160),
+                  )
+                : Image.network(
+                    resolvedUrl,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, _, __) => const ColoredBox(
                       color: Color(0xFFF1F7F4),
                       child: SizedBox(height: 160),
-                    )
-                  : Image.network(
-                      resolvedUrl,
-                      height: 160,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, _, __) => const ColoredBox(
-                        color: Color(0xFFF1F7F4),
-                        child: SizedBox(height: 160),
-                      ),
                     ),
-            ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _pickImage,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: const Text('Fotograf Degistir'),
+                  ),
           ),
+          const SizedBox(height: 8),
           if (error.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(error, style: const TextStyle(color: Colors.redAccent)),
@@ -780,12 +862,14 @@ class _EditListingPageState extends State<EditListingPage> {
     TextEditingController controller,
     String label, {
     int maxLines = 1,
+    ValueChanged<String>? onChanged,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         controller: controller,
         maxLines: maxLines,
+        onChanged: onChanged,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),

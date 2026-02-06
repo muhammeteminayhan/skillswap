@@ -17,4 +17,15 @@ public class SwapMatchDto {
     private Boolean doneByMe;
     private Boolean doneByOther;
     private Boolean canReview;
+    private Integer myCredit;
+    private Integer otherCredit;
+    private Integer creditDiff;
+    private Integer fairnessPercent;
+    private Boolean creditRequiredByMe;
+    private Integer requiredCredits;
+    private Integer pricePerCredit;
+    private Double platformFeeRate;
+    private Integer requiredAmountTl;
+    private Integer platformFeeAmountTl;
+    private Integer payoutAmountTl;
 }

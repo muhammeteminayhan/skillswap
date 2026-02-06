@@ -4,8 +4,10 @@ import com.skillswap.backend.backend.dto.SwapAcceptRequest;
 import com.skillswap.backend.backend.dto.SwapDoneRequest;
 import com.skillswap.backend.backend.dto.SwapMatchDto;
 import com.skillswap.backend.backend.dto.SwapRebuildResponse;
+import com.skillswap.backend.backend.dto.SwapReviewDto;
 import com.skillswap.backend.backend.dto.SwapReviewRequest;
 import com.skillswap.backend.backend.service.SwapMatchService;
+import com.skillswap.backend.backend.service.SwapReviewService;
 import com.skillswap.backend.backend.repository.SwapRequestRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,10 +23,16 @@ import java.util.List;
 public class SwapMatchController {
 
     private final SwapMatchService swapMatchService;
+    private final SwapReviewService swapReviewService;
     private final SwapRequestRepository swapRequestRepository;
 
-    public SwapMatchController(SwapMatchService swapMatchService, SwapRequestRepository swapRequestRepository) {
+    public SwapMatchController(
+            SwapMatchService swapMatchService,
+            SwapReviewService swapReviewService,
+            SwapRequestRepository swapRequestRepository
+    ) {
         this.swapMatchService = swapMatchService;
+        this.swapReviewService = swapReviewService;
         this.swapRequestRepository = swapRequestRepository;
     }
 
@@ -51,6 +59,16 @@ public class SwapMatchController {
                 request == null ? null : request.getRating(),
                 request == null ? null : request.getComment()
         );
+    }
+
+    @GetMapping("/matches/{matchId}/reviews")
+    public List<SwapReviewDto> reviewsForMatch(@PathVariable Long matchId) {
+        return swapReviewService.listByMatch(matchId);
+    }
+
+    @GetMapping("/reviews/{userId}")
+    public List<SwapReviewDto> reviewsForUser(@PathVariable Long userId) {
+        return swapReviewService.listByUser(userId);
     }
 
     @PostMapping("/rebuild")

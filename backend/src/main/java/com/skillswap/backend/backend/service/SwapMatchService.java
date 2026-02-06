@@ -24,17 +24,29 @@ public class SwapMatchService {
     private final SwapRequestRepository swapRequestRepository;
     private final UserProfileRepository userProfileRepository;
     private final SwapReviewRepository swapReviewRepository;
+    private final CreditValuationService creditValuationService;
+    private final CreditService creditService;
+    private final CreditConfig creditConfig;
+    private final TrustScoreService trustScoreService;
 
     public SwapMatchService(
             SwapMatchRepository swapMatchRepository,
             SwapRequestRepository swapRequestRepository,
             UserProfileRepository userProfileRepository,
-            SwapReviewRepository swapReviewRepository
+            SwapReviewRepository swapReviewRepository,
+            CreditValuationService creditValuationService,
+            CreditService creditService,
+            CreditConfig creditConfig,
+            TrustScoreService trustScoreService
     ) {
         this.swapMatchRepository = swapMatchRepository;
         this.swapRequestRepository = swapRequestRepository;
         this.userProfileRepository = userProfileRepository;
         this.swapReviewRepository = swapReviewRepository;
+        this.creditValuationService = creditValuationService;
+        this.creditService = creditService;
+        this.creditConfig = creditConfig;
+        this.trustScoreService = trustScoreService;
     }
 
     @Transactional
@@ -93,6 +105,13 @@ public class SwapMatchService {
         if (userId == null) {
             throw new IllegalArgumentException("Kullanici gerekli.");
         }
+        CreditSettlement settlement = buildSettlement(match);
+        if (settlement.requiredCredits > 0
+                && settlement.payerUserId != null
+                && userId.equals(settlement.payerUserId)
+                && !creditService.hasEnoughCredits(userId, settlement.requiredCredits)) {
+            throw new IllegalArgumentException("Kredi yetersiz. Onaydan once kredi tamamlaman gerekiyor.");
+        }
         if (userId.equals(match.getUserAId())) {
             match.setAcceptedByA(true);
         } else if (userId.equals(match.getUserBId())) {
@@ -101,6 +120,15 @@ public class SwapMatchService {
             throw new IllegalArgumentException("Bu eslesmeye erisemezsiniz.");
         }
         if (Boolean.TRUE.equals(match.getAcceptedByA()) && Boolean.TRUE.equals(match.getAcceptedByB())) {
+            if (settlement.requiredCredits > 0) {
+                creditService.settleMatch(
+                        match.getId(),
+                        settlement.payerUserId,
+                        settlement.receiverUserId,
+                        settlement.requiredCredits,
+                        settlement.description
+                );
+            }
             match.setStatus("ACCEPTED");
             // Remove requests from pool once matched to prevent re-matching
             swapRequestRepository.deleteById(match.getRequestAId());
@@ -159,6 +187,7 @@ public class SwapMatchService {
         review.setComment(comment == null ? "" : comment.trim());
         review.setCreatedAt(LocalDateTime.now());
         swapReviewRepository.save(review);
+        trustScoreService.applyReview(toUserId, rating);
     }
 
     private boolean isReciprocal(SwapRequestEntity a, SwapRequestEntity b) {
@@ -222,6 +251,66 @@ public class SwapMatchService {
         boolean canReview = "DONE".equals(match.getStatus())
                 && !swapReviewRepository.existsByMatchIdAndFromUserId(match.getId(), viewerId);
         dto.setCanReview(canReview);
+        applyCreditInfo(dto, match, viewerId, otherId);
         return dto;
+    }
+
+    private void applyCreditInfo(SwapMatchDto dto, SwapMatchEntity match, Long viewerId, Long otherId) {
+        int myCredit = creditValuationService.evaluate(viewerId, dto.getMyOffered());
+        int otherCredit = creditValuationService.evaluate(otherId, dto.getOtherOffered());
+        int diff = Math.abs(myCredit - otherCredit);
+        int max = Math.max(myCredit, otherCredit);
+        int fairness = max == 0 ? 100 : Math.max(0, 100 - (int) Math.round((diff * 100.0) / max));
+        boolean creditRequiredByMe = diff > 0 && myCredit < otherCredit;
+        int requiredAmount = diff * creditConfig.getPricePerCredit();
+        int platformFee = (int) Math.round(requiredAmount * creditConfig.getPlatformFeeRate());
+        int payout = requiredAmount - platformFee;
+
+        dto.setMyCredit(myCredit);
+        dto.setOtherCredit(otherCredit);
+        dto.setCreditDiff(diff);
+        dto.setFairnessPercent(fairness);
+        dto.setCreditRequiredByMe(creditRequiredByMe);
+        dto.setRequiredCredits(diff);
+        dto.setPricePerCredit(creditConfig.getPricePerCredit());
+        dto.setPlatformFeeRate(creditConfig.getPlatformFeeRate());
+        dto.setRequiredAmountTl(requiredAmount);
+        dto.setPlatformFeeAmountTl(platformFee);
+        dto.setPayoutAmountTl(payout);
+    }
+
+    private CreditSettlement buildSettlement(SwapMatchEntity match) {
+        SwapRequestEntity reqA = swapRequestRepository.findById(match.getRequestAId()).orElse(null);
+        SwapRequestEntity reqB = swapRequestRepository.findById(match.getRequestBId()).orElse(null);
+        String offeredA = reqA == null ? match.getRequestAOffered() : reqA.getOfferedSkill();
+        String offeredB = reqB == null ? match.getRequestBOffered() : reqB.getOfferedSkill();
+        int creditA = creditValuationService.evaluate(match.getUserAId(), offeredA);
+        int creditB = creditValuationService.evaluate(match.getUserBId(), offeredB);
+        CreditSettlement settlement = new CreditSettlement();
+        if (creditA == creditB) {
+            settlement.requiredCredits = 0;
+            settlement.payerUserId = null;
+            settlement.receiverUserId = null;
+            settlement.description = "Takas kredileri esitlendi.";
+            return settlement;
+        }
+        if (creditA < creditB) {
+            settlement.payerUserId = match.getUserAId();
+            settlement.receiverUserId = match.getUserBId();
+            settlement.requiredCredits = creditB - creditA;
+        } else {
+            settlement.payerUserId = match.getUserBId();
+            settlement.receiverUserId = match.getUserAId();
+            settlement.requiredCredits = creditA - creditB;
+        }
+        settlement.description = "Takas kredi dengelemesi";
+        return settlement;
+    }
+
+    private static class CreditSettlement {
+        private Long payerUserId;
+        private Long receiverUserId;
+        private int requiredCredits;
+        private String description;
     }
 }

@@ -243,6 +243,40 @@ class ApiClient {
     );
   }
 
+  Future<List<Map<String, dynamic>>> swapReviewsForMatch(int matchId) async {
+    final response = await dio.get('/api/swaps/matches/$matchId/reviews');
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> swapReviewsForUser(int userId) async {
+    final response = await dio.get('/api/swaps/reviews/$userId');
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> creditBalance() async {
+    final response = await dio.get('/api/credits/${_userId()}/balance');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<List<Map<String, dynamic>>> creditTransactions() async {
+    final response = await dio.get('/api/credits/${_userId()}/transactions');
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> purchaseCredits(int credits) async {
+    final response = await dio.post(
+      '/api/credits/purchase',
+      data: {'userId': _userId(), 'credits': credits},
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
   Future<Map<String, dynamic>> skills() async {
     final response = await dio.get('/api/skills/${_userId()}');
     return Map<String, dynamic>.from(response.data as Map);

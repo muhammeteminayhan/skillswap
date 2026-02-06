@@ -20,10 +20,19 @@ public class ListingService {
 
     private final ListingRepository listingRepository;
     private final UserProfileRepository userProfileRepository;
+    private final CreditService creditService;
+    private final int listingFeeCredits;
 
-    public ListingService(ListingRepository listingRepository, UserProfileRepository userProfileRepository) {
+    public ListingService(
+            ListingRepository listingRepository,
+            UserProfileRepository userProfileRepository,
+            CreditService creditService,
+            @org.springframework.beans.factory.annotation.Value("${app.listing.feeCredits:1}") int listingFeeCredits
+    ) {
         this.listingRepository = listingRepository;
         this.userProfileRepository = userProfileRepository;
+        this.creditService = creditService;
+        this.listingFeeCredits = listingFeeCredits;
     }
 
     public List<ListingResponse> listAll() {
@@ -42,6 +51,7 @@ public class ListingService {
     public ListingResponse create(ListingCreateRequest request) {
         UserProfileEntity owner = userProfileRepository.findById(request.getOwnerUserId())
                 .orElseThrow(() -> new IllegalArgumentException("Ilan sahibi kullanici bulunamadi."));
+        creditService.chargeListingFeeCredits(owner.getId(), listingFeeCredits);
 
         ListingEntity entity = new ListingEntity();
         entity.setOwnerUserId(owner.getId());

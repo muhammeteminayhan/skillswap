@@ -16,10 +16,16 @@ public class SkillService {
 
     private final UserSkillRepository userSkillRepository;
     private final SwapRequestService swapRequestService;
+    private final TrustScoreService trustScoreService;
 
-    public SkillService(UserSkillRepository userSkillRepository, SwapRequestService swapRequestService) {
+    public SkillService(
+            UserSkillRepository userSkillRepository,
+            SwapRequestService swapRequestService,
+            TrustScoreService trustScoreService
+    ) {
         this.userSkillRepository = userSkillRepository;
         this.swapRequestService = swapRequestService;
+        this.trustScoreService = trustScoreService;
     }
 
     public SkillsResponse getSkills(Long userId) {
@@ -44,7 +50,9 @@ public class SkillService {
 
     @Transactional
     public SkillsResponse updateSkills(Long userId, SkillsUpdateRequest request) {
+        int beforeCount = userSkillRepository.findByUserId(userId).size();
         userSkillRepository.deleteByUserId(userId);
+        int addedCount = 0;
 
         if (request != null && request.getOffers() != null) {
             for (SkillItemDto offer : request.getOffers()) {
@@ -55,6 +63,7 @@ public class SkillService {
                             cleanDescription(offer.getDescription()),
                             "OFFER"
                     );
+                    addedCount++;
                 }
             }
         }
@@ -68,12 +77,15 @@ public class SkillService {
                             cleanDescription(want.getDescription()),
                             "WANT"
                     );
+                    addedCount++;
                 }
             }
         }
 
         SkillsResponse response = getSkills(userId);
         swapRequestService.rebuildForUser(userId);
+        int delta = Math.max(0, addedCount - beforeCount);
+        trustScoreService.applySkillAdded(userId, delta);
         return response;
     }
 
@@ -96,6 +108,7 @@ public class SkillService {
 
         UserSkillEntity entity = save(userId, rawName, cleanDescription(request.getDescription()), "OFFER");
         swapRequestService.rebuildForUser(userId);
+        trustScoreService.applySkillAdded(userId, 1);
         return toDto(entity);
     }
 

@@ -88,7 +88,7 @@ class _MainShellState extends State<MainShell> {
                 icon: Icon(Icons.flash_on_rounded),
                 label: 'Yetenekler',
               ),
-              NavigationDestination(icon: _centerIcon(), label: 'Ilanlar'),
+              NavigationDestination(icon: _centerIcon(), label: 'İlanlar'),
               const NavigationDestination(
                 icon: Icon(Icons.swap_horiz_rounded),
                 label: 'Takaslar',

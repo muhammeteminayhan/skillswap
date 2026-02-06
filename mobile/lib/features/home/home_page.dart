@@ -24,6 +24,9 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? dashboard;
   String profilePhotoUrl = '';
   bool loading = true;
+  int creditBalance = 0;
+  int pricePerCredit = 50;
+  double platformFeeRate = 0.1;
 
   @override
   void initState() {
@@ -36,12 +39,17 @@ class _HomePageState extends State<HomePage> {
       final results = await Future.wait([
         widget.api.dashboard(),
         widget.api.profile(),
+        widget.api.creditBalance(),
       ]);
       final data = results[0] as Map<String, dynamic>;
       final profile = results[1] as Map<String, dynamic>;
+      final balance = results[2] as Map<String, dynamic>;
       setState(() {
         dashboard = data;
         profilePhotoUrl = profile['photoUrl']?.toString() ?? '';
+        creditBalance = (balance['balance'] as num?)?.toInt() ?? 0;
+        pricePerCredit = (balance['pricePerCredit'] as num?)?.toInt() ?? 50;
+        platformFeeRate = (balance['platformFeeRate'] as num?)?.toDouble() ?? 0.1;
       });
     } finally {
       setState(() => loading = false);
@@ -64,6 +72,15 @@ class _HomePageState extends State<HomePage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              ClipOval(
+                child: Image.asset(
+                  'assets/logo.png',
+                  width: 42,
+                  height: 42,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,7 +99,6 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
               InkWell(
                 borderRadius: BorderRadius.circular(22),
                 onTap: () async {
@@ -142,6 +158,8 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 14),
+          _creditSummaryCard(),
+          const SizedBox(height: 14),
           const Text(
             'Hizli Istatistikler',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -167,6 +185,66 @@ class _HomePageState extends State<HomePage> {
             );
           }),
         ],
+      ),
+    );
+  }
+
+  Widget _creditSummaryCard() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CreditDetailPage(api: widget.api),
+          ),
+        ).then((_) => _load());
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFFFF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFDDEAE3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.account_balance_wallet_outlined,
+                    color: Color(0xFF1B9C6B)),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Kredi Bakiyen',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Color(0xFF6B7A72)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Text(
+                  '$creditBalance',
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text('kredi'),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '1 kredi = $pricePerCredit TL · Platform komisyonu %${(platformFeeRate * 100).toInt()}',
+              style: const TextStyle(color: Color(0xFF4A5852)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -200,6 +278,270 @@ class _HomePageState extends State<HomePage> {
       ),
       child: child,
     );
+  }
+}
+
+class CreditDetailPage extends StatefulWidget {
+  const CreditDetailPage({super.key, required this.api});
+
+  final ApiClient api;
+
+  @override
+  State<CreditDetailPage> createState() => _CreditDetailPageState();
+}
+
+class _CreditDetailPageState extends State<CreditDetailPage> {
+  int creditBalance = 0;
+  int pricePerCredit = 50;
+  double platformFeeRate = 0.1;
+  List<Map<String, dynamic>> creditTransactions = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final results = await Future.wait([
+      widget.api.creditBalance(),
+      widget.api.creditTransactions(),
+    ]);
+    final balance = results[0] as Map<String, dynamic>;
+    final transactions = results[1] as List<Map<String, dynamic>>;
+    if (!mounted) return;
+    setState(() {
+      creditBalance = (balance['balance'] as num?)?.toInt() ?? 0;
+      pricePerCredit = (balance['pricePerCredit'] as num?)?.toInt() ?? 50;
+      platformFeeRate =
+          (balance['platformFeeRate'] as num?)?.toDouble() ?? 0.1;
+      creditTransactions = transactions;
+      loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Kredi Detayi')),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _creditSummaryCard(),
+                const SizedBox(height: 12),
+                _creditTransactionsCard(),
+              ],
+            ),
+    );
+  }
+
+  Widget _creditSummaryCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.account_balance_wallet_outlined,
+                  color: Color(0xFF1B9C6B)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Kredi Bakiyen',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+              FilledButton(
+                onPressed: _openPurchaseCredits,
+                child: const Text('Kredi Satin Al'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                '$creditBalance',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text('kredi'),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '1 kredi = $pricePerCredit TL · Platform komisyonu %${(platformFeeRate * 100).toInt()}',
+            style: const TextStyle(color: Color(0xFF4A5852)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _creditTransactionsCard() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FCFA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Islem Gecmisi',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          if (creditTransactions.isEmpty)
+            const Text(
+              'Henuz kredi islemi yok.',
+              style: TextStyle(color: Color(0xFF6B7A72)),
+            )
+          else
+            ...creditTransactions.map(_transactionTile).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _transactionTile(Map<String, dynamic> txn) {
+    final type = txn['type']?.toString() ?? '';
+    final credits = (txn['credits'] as num?)?.toInt() ?? 0;
+    final amount = (txn['amountTl'] as num?)?.toInt() ?? 0;
+    final createdAt = txn['createdAt']?.toString() ?? '';
+    String title = 'Kredi Islemi';
+    if (type == 'PURCHASE') title = 'Kredi Satin Alimi';
+    if (type == 'MATCH_PAYMENT') title = 'Takas Kredisi Odemesi';
+    if (type == 'MATCH_INCOME') title = 'Takas Kazanci';
+    if (type == 'LISTING_FEE') title = 'Ilan Komisyonu';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDDEAE3)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            type == 'PURCHASE'
+                ? Icons.add_circle_outline
+                : type == 'MATCH_PAYMENT'
+                    ? Icons.remove_circle_outline
+                    : Icons.check_circle_outline,
+            color: const Color(0xFF1B9C6B),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                if (createdAt.isNotEmpty)
+                  Text(
+                    createdAt,
+                    style: const TextStyle(
+                      color: Color(0xFF6B7A72),
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                credits == 0 ? '' : '${credits > 0 ? '+' : ''}$credits kredi',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              Text(
+                amount == 0 ? '' : '$amount TL',
+                style: const TextStyle(color: Color(0xFF4A5852)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openPurchaseCredits() async {
+    final controller = TextEditingController();
+    int selected = 20;
+    final purchased = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Kredi Satin Al'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(
+                spacing: 8,
+                children: [10, 20, 40, 60].map((value) {
+                  final active = selected == value;
+                  return ChoiceChip(
+                    label: Text('$value kredi'),
+                    selected: active,
+                    onSelected: (_) => setModalState(() => selected = value),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Ozel kredi miktari',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tutar: ${(selected * pricePerCredit)} TL',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Iptal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Satin Al'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (purchased != true) return;
+    final custom = int.tryParse(controller.text.trim());
+    final credits = (custom != null && custom > 0) ? custom : selected;
+    await widget.api.purchaseCredits(credits);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Kredi satin alimi tamamlandi.')),
+    );
+    await _load();
   }
 }
 
