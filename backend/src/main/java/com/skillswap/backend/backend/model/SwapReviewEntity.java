@@ -8,27 +8,32 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Entity
-@Table(name = "user_skills")
+@Table(name = "swap_reviews")
 @Data
-public class UserSkillEntity {
+public class SwapReviewEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private Long userId;
+    private Long matchId;
 
     @Column(nullable = false)
-    private String skillName;
+    private Long fromUserId;
 
-    @Column
-    private String normalizedSkill;
+    @Column(nullable = false)
+    private Long toUserId;
+
+    @Column(nullable = false)
+    private Integer rating;
 
     @Column(length = 700)
-    private String skillDescription;
+    private String comment;
 
     @Column(nullable = false)
-    private String skillType;
+    private LocalDateTime createdAt;
 }

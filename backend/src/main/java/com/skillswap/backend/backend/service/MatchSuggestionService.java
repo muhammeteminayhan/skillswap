@@ -36,8 +36,10 @@ public class MatchSuggestionService {
 
     public List<MatchSuggestionDto> findMatches(Long requesterId, String text) {
         ExtractResponse extracted = extractService.extract(text);
-        List<String> wants = safeList(extracted.getWants());
-        List<String> offers = safeList(extracted.getOffers());
+        List<String> rawWants = safeList(extracted.getWants());
+        List<String> rawOffers = safeList(extracted.getOffers());
+        List<String> wants = normalizeList(rawWants);
+        List<String> offers = normalizeList(rawOffers);
         String requesterLocation = userProfileRepository.findById(requesterId)
                 .map(UserProfileEntity::getLocation)
                 .orElse("");
@@ -53,12 +55,21 @@ public class MatchSuggestionService {
             List<UserSkillEntity> skills = userSkillRepository.findByUserId(candidate.getId());
             List<String> candidateOffers = filterByType(skills, "OFFER");
             List<String> candidateWants = filterByType(skills, "WANT");
+            List<String> candidateOffersRaw = filterByTypeRaw(skills, "OFFER");
+            List<String> candidateWantsRaw = filterByTypeRaw(skills, "WANT");
 
             int wantMatch = overlapScore(wants, candidateOffers);
             int offerMatch = overlapScore(offers, candidateWants);
-            int semanticOverlap = semanticCategoryOverlap(wants, candidateOffers) + semanticCategoryOverlap(offers, candidateWants);
+            int semanticWantOverlap = semanticCategoryOverlap(rawWants, candidateOffersRaw);
+            int semanticOfferOverlap = semanticCategoryOverlap(rawOffers, candidateWantsRaw);
+            int semanticOverlap = semanticWantOverlap + semanticOfferOverlap;
             int semanticSignal = Math.max(wantMatch, semanticOverlap);
             boolean reciprocal = wantMatch > 0 && offerMatch > 0;
+
+            if (!wants.isEmpty() && wantMatch == 0 && semanticWantOverlap == 0) {
+                continue;
+            }
+
             double mlScore = mlModelService.semanticScore(semanticSignal, offerMatch, candidate.getTrustScore(), reciprocal);
             boolean sameLocation = sameLocation(requesterLocation, candidate.getLocation());
             int locationBoost = sameLocation ? 6 : 0;
@@ -89,7 +100,29 @@ public class MatchSuggestionService {
         return list == null ? List.of() : list;
     }
 
+    private List<String> normalizeList(List<String> list) {
+        return list.stream()
+                .map(SkillNormalizer::normalize)
+                .filter(s -> !s.isBlank())
+                .toList();
+    }
+
+    private String normalizedSkillOf(UserSkillEntity skill) {
+        String normalized = skill.getNormalizedSkill();
+        if (normalized != null && !normalized.isBlank()) {
+            return normalized;
+        }
+        return SkillNormalizer.normalize(skill.getSkillName());
+    }
+
     private List<String> filterByType(List<UserSkillEntity> skills, String type) {
+        return skills.stream()
+                .filter(s -> type.equals(s.getSkillType()))
+                .map(this::normalizedSkillOf)
+                .toList();
+    }
+
+    private List<String> filterByTypeRaw(List<UserSkillEntity> skills, String type) {
         return skills.stream()
                 .filter(s -> type.equals(s.getSkillType()))
                 .map(UserSkillEntity::getSkillName)
@@ -102,12 +135,16 @@ public class MatchSuggestionService {
             if (l == null || l.isBlank()) {
                 continue;
             }
-            String normalizedLeft = l.toLowerCase(Locale.ROOT);
+            String normalizedLeft = SkillNormalizer.normalize(l);
             for (String r : right) {
                 if (r == null || r.isBlank()) {
                     continue;
                 }
-                String normalizedRight = r.toLowerCase(Locale.ROOT);
+                String normalizedRight = SkillNormalizer.normalize(r);
+                if (normalizedRight.equals(normalizedLeft)) {
+                    score++;
+                    break;
+                }
                 if (normalizedRight.contains(normalizedLeft) || normalizedLeft.contains(normalizedRight)) {
                     score++;
                     break;

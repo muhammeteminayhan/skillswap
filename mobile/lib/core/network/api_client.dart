@@ -164,6 +164,29 @@ class ApiClient {
         .toList();
   }
 
+  Future<List<String>> requestWants() async {
+    final response = await dio.get('/api/requests/${_userId()}/wants');
+    return (response.data as List).map((e) => e.toString()).toList();
+  }
+
+  Future<void> addRequestWant(String want) async {
+    await dio.post('/api/requests/${_userId()}/wants', data: want);
+  }
+
+  Future<void> deleteRequestWant(String want) async {
+    await dio.delete(
+      '/api/requests/${_userId()}/wants',
+      queryParameters: {'want': want},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> requestsAll() async {
+    final response = await dio.get('/api/requests');
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
   Future<void> createRequest(String text) async {
     await dio.post('/api/requests', data: {'userId': _userId(), 'text': text});
   }
@@ -175,6 +198,48 @@ class ApiClient {
     await dio.post(
       '/api/requests/$requestId/feedback',
       data: {'success': success},
+    );
+  }
+
+  Future<void> updateSwapStatus({
+    required int requestId,
+    required String status,
+  }) async {
+    await dio.put(
+      '/api/requests/$requestId/status',
+      data: {'status': status},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> swapMatches() async {
+    final response = await dio.get('/api/swaps/matches/${_userId()}');
+    return (response.data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<void> acceptSwapMatch(int matchId) async {
+    await dio.post(
+      '/api/swaps/matches/$matchId/accept',
+      data: {'userId': _userId()},
+    );
+  }
+
+  Future<void> doneSwapMatch(int matchId) async {
+    await dio.post(
+      '/api/swaps/matches/$matchId/done',
+      data: {'userId': _userId()},
+    );
+  }
+
+  Future<void> reviewSwapMatch({
+    required int matchId,
+    required int rating,
+    required String comment,
+  }) async {
+    await dio.post(
+      '/api/swaps/matches/$matchId/review',
+      data: {'fromUserId': _userId(), 'rating': rating, 'comment': comment},
     );
   }
 
@@ -240,6 +305,11 @@ class ApiClient {
 
   Future<Map<String, dynamic>> profile() async {
     final response = await dio.get('/api/profile/${_userId()}');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<Map<String, dynamic>> profileById(int userId) async {
+    final response = await dio.get('/api/profile/$userId');
     return Map<String, dynamic>.from(response.data as Map);
   }
 

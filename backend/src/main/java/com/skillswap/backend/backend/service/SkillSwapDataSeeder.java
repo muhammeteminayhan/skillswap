@@ -22,22 +22,26 @@ public class SkillSwapDataSeeder implements CommandLineRunner {
     private final UserSkillRepository userSkillRepository;
     private final ListingRepository listingRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final SwapRequestService swapRequestService;
 
     public SkillSwapDataSeeder(
             UserProfileRepository userProfileRepository,
             UserSkillRepository userSkillRepository,
             ListingRepository listingRepository,
-            ChatMessageRepository chatMessageRepository
+            ChatMessageRepository chatMessageRepository,
+            SwapRequestService swapRequestService
     ) {
         this.userProfileRepository = userProfileRepository;
         this.userSkillRepository = userSkillRepository;
         this.listingRepository = listingRepository;
         this.chatMessageRepository = chatMessageRepository;
+        this.swapRequestService = swapRequestService;
     }
 
     @Override
     public void run(String... args) {
         if (userProfileRepository.count() > 0) {
+            swapRequestService.rebuildAll();
             return;
         }
 
@@ -62,6 +66,8 @@ public class SkillSwapDataSeeder implements CommandLineRunner {
         seedSkills(5L,
                 List.of("Boya - iç cephe", "Alçı - duvar düzeltme"),
                 List.of("Doğalgaz - kombi bakımı", "Elektrik - priz"));
+
+        swapRequestService.rebuildAll();
 
         seedListings();
         seedMessages();
@@ -97,6 +103,7 @@ public class SkillSwapDataSeeder implements CommandLineRunner {
             UserSkillEntity skill = new UserSkillEntity();
             skill.setUserId(userId);
             skill.setSkillName(offer);
+            skill.setNormalizedSkill(SkillNormalizer.normalize(offer));
             skill.setSkillDescription("Demo yetenek açıklaması: " + offer);
             skill.setSkillType("OFFER");
             userSkillRepository.save(skill);
@@ -106,6 +113,7 @@ public class SkillSwapDataSeeder implements CommandLineRunner {
             UserSkillEntity skill = new UserSkillEntity();
             skill.setUserId(userId);
             skill.setSkillName(want);
+            skill.setNormalizedSkill(SkillNormalizer.normalize(want));
             skill.setSkillDescription("Demo ihtiyaç açıklaması: " + want);
             skill.setSkillType("WANT");
             userSkillRepository.save(skill);

@@ -282,21 +282,22 @@ class _AiChatPageState extends State<AiChatPage> {
                   color: isBoost ? const Color(0xFFE6F7E6) : null,
                   child: ListTile(
                     title: Text(
-                      '${m['name']}  (%${m['matchScore']})',
+                      isBoost
+                          ? '${m['name']}'
+                          : '${m['name']}  (%${m['matchScore']})',
                       style: isBoost
                           ? const TextStyle(fontWeight: FontWeight.w700)
                           : null,
                     ),
-                    subtitle: Text(
-                      '${m['reason']}\nAnlamsal Skor: ${m['semanticScore']} | Adalet: %${m['fairnessPercent']}',
-                    ),
+                    subtitle: isBoost
+                        ? const Text('Onayli Profil')
+                        : Text(
+                            '${m['reason']}\nAnlamsal Skor: ${m['semanticScore']} | Adalet: %${m['fairnessPercent']}',
+                          ),
                     trailing: isBoost
-                        ? const Text(
-                            'Premium',
-                            style: TextStyle(
-                              color: Color(0xFF2F7D32),
-                              fontWeight: FontWeight.w700,
-                            ),
+                        ? const Icon(
+                            Icons.verified_rounded,
+                            color: Color(0xFF2F7D32),
                           )
                         : null,
                   ),

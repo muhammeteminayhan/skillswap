@@ -15,9 +15,11 @@ import java.util.List;
 public class SkillService {
 
     private final UserSkillRepository userSkillRepository;
+    private final SwapRequestService swapRequestService;
 
-    public SkillService(UserSkillRepository userSkillRepository) {
+    public SkillService(UserSkillRepository userSkillRepository, SwapRequestService swapRequestService) {
         this.userSkillRepository = userSkillRepository;
+        this.swapRequestService = swapRequestService;
     }
 
     public SkillsResponse getSkills(Long userId) {
@@ -49,7 +51,7 @@ public class SkillService {
                 if (offer != null && offer.getName() != null && !offer.getName().isBlank()) {
                     save(
                             userId,
-                            normalizeSkillName(offer.getName()),
+                            offer.getName(),
                             cleanDescription(offer.getDescription()),
                             "OFFER"
                     );
@@ -62,7 +64,7 @@ public class SkillService {
                 if (want != null && want.getName() != null && !want.getName().isBlank()) {
                     save(
                             userId,
-                            normalizeSkillName(want.getName()),
+                            want.getName(),
                             cleanDescription(want.getDescription()),
                             "WANT"
                     );
@@ -70,7 +72,9 @@ public class SkillService {
             }
         }
 
-        return getSkills(userId);
+        SkillsResponse response = getSkills(userId);
+        swapRequestService.rebuildForUser(userId);
+        return response;
     }
 
     @Transactional
@@ -79,8 +83,9 @@ public class SkillService {
             throw new IllegalArgumentException("Yetenek adi zorunludur.");
         }
 
-        String normalizedName = normalizeSkillName(request.getName());
-        boolean duplicate = userSkillRepository.existsByUserIdAndSkillTypeAndSkillNameIgnoreCase(
+        String rawName = request.getName().trim();
+        String normalizedName = normalizeSkillName(rawName);
+        boolean duplicate = userSkillRepository.existsByUserIdAndSkillTypeAndNormalizedSkill(
                 userId,
                 "OFFER",
                 normalizedName
@@ -89,7 +94,8 @@ public class SkillService {
             throw new IllegalArgumentException("Ayni adda bir yetenek zaten mevcut.");
         }
 
-        UserSkillEntity entity = save(userId, normalizedName, cleanDescription(request.getDescription()), "OFFER");
+        UserSkillEntity entity = save(userId, rawName, cleanDescription(request.getDescription()), "OFFER");
+        swapRequestService.rebuildForUser(userId);
         return toDto(entity);
     }
 
@@ -100,22 +106,25 @@ public class SkillService {
         if (!entity.getUserId().equals(userId) || !"OFFER".equals(entity.getSkillType())) {
             throw new IllegalArgumentException("Bu yetenegi guncelleyemezsiniz.");
         }
-        String name = request == null || request.getName() == null ? "" : normalizeSkillName(request.getName());
-        if (name.isBlank()) {
+        String rawName = request == null || request.getName() == null ? "" : request.getName().trim();
+        if (rawName.isBlank()) {
             throw new IllegalArgumentException("Yetenek adi zorunludur.");
         }
+        String normalizedName = normalizeSkillName(rawName);
 
-        boolean duplicate = userSkillRepository.existsByUserIdAndSkillTypeAndSkillNameIgnoreCase(
+        boolean duplicate = userSkillRepository.existsByUserIdAndSkillTypeAndNormalizedSkill(
                 userId,
                 "OFFER",
-                name
+                normalizedName
         );
-        if (duplicate && !entity.getSkillName().equalsIgnoreCase(name)) {
+        if (duplicate && !entity.getNormalizedSkill().equalsIgnoreCase(normalizedName)) {
             throw new IllegalArgumentException("Ayni adda bir yetenek zaten mevcut.");
         }
 
-        entity.setSkillName(name);
+        entity.setSkillName(rawName);
+        entity.setNormalizedSkill(normalizedName);
         entity.setSkillDescription(cleanDescription(request.getDescription()));
+        swapRequestService.rebuildForUser(userId);
         return toDto(userSkillRepository.save(entity));
     }
 
@@ -127,6 +136,7 @@ public class SkillService {
             throw new IllegalArgumentException("Bu yetenegi silemezsiniz.");
         }
         userSkillRepository.delete(entity);
+        swapRequestService.rebuildForUser(userId);
     }
 
     private SkillItemDto toDto(UserSkillEntity entity) {
@@ -145,42 +155,14 @@ public class SkillService {
     }
 
     private String normalizeSkillName(String raw) {
-        if (raw == null) {
-            return "";
-        }
-        String trimmed = raw.trim();
-        if (trimmed.isEmpty()) {
-            return "";
-        }
-        String lower = trimmed.toLowerCase(java.util.Locale.forLanguageTag("tr"));
-        if (lower.contains("tesisat")) {
-            return "Tesisat";
-        }
-        if (lower.contains("elektrik")) {
-            return "Elektrik";
-        }
-        if (lower.contains("boya") || lower.contains("badana")) {
-            return "Boya";
-        }
-        if (lower.contains("dogalgaz") || lower.contains("doğalgaz")) {
-            return "Dogalgaz";
-        }
-        if (lower.contains("kombi")) {
-            return "Kombi";
-        }
-        if (lower.contains("bilgisayar") || lower.contains("pc")) {
-            return "Bilgisayar Teknik";
-        }
-        if (lower.contains("temizlik")) {
-            return "Temizlik";
-        }
-        return trimmed.substring(0, 1).toUpperCase() + trimmed.substring(1).toLowerCase();
+        return SkillNormalizer.normalize(raw);
     }
 
     private UserSkillEntity save(Long userId, String skillName, String description, String type) {
         UserSkillEntity entity = new UserSkillEntity();
         entity.setUserId(userId);
-        entity.setSkillName(skillName);
+        entity.setSkillName(skillName.trim());
+        entity.setNormalizedSkill(SkillNormalizer.normalize(skillName));
         entity.setSkillDescription(description);
         entity.setSkillType(type);
         return userSkillRepository.save(entity);
