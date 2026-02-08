@@ -71,6 +71,14 @@ public class SwapMatchController {
         return swapReviewService.listByUser(userId);
     }
 
+    @DeleteMapping("/matches/{matchId}")
+    public void deleteDoneMatch(
+            @PathVariable Long matchId,
+            @RequestParam Long userId
+    ) {
+        swapMatchService.deleteDoneMatch(matchId, userId);
+    }
+
     @PostMapping("/rebuild")
     public SwapRebuildResponse rebuild() {
         swapMatchService.rebuildAll();

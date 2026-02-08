@@ -106,7 +106,10 @@ public class SwapRequestService {
         SwapRequestEntity entity = swapRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Takas istegi bulunamadi."));
         String normalized = status == null ? "" : status.trim().toUpperCase();
-        if (!(normalized.equals("OPEN") || normalized.equals("DONE") || normalized.equals("CANCELLED"))) {
+        if (!(normalized.equals("OPEN")
+                || normalized.equals("DONE")
+                || normalized.equals("CANCELLED")
+                || normalized.equals("LOCKED"))) {
             throw new IllegalArgumentException("Gecersiz durum.");
         }
         entity.setStatus(normalized);

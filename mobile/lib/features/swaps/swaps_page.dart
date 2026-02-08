@@ -300,8 +300,16 @@ class _SwapsPageState extends State<SwapsPage> {
     );
   }
 
+  List<String> get _statusFilters => const [
+        'Tumu',
+        'Bekliyor',
+        'Aktif',
+        'Takasi Tamamlamasi Beklenen',
+        'Tamamlandi',
+      ];
+
   Widget _filterBar() {
-    final statuses = ['Tumu', 'Bekliyor', 'Aktif', 'Tamamlandi'];
+    final statuses = _statusFilters;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -452,24 +460,6 @@ class _SwapsPageState extends State<SwapsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: needController,
-            decoration: const InputDecoration(
-              labelText: 'Yeni ihtiyac ekle',
-              border: OutlineInputBorder(),
-            ),
-            onSubmitted: (_) => _addNeedFromField(),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _addNeedFromField,
-              child: const Text('Ihtiyac Ekle'),
-            ),
-          ),
-          const SizedBox(height: 6),
           if (wants.isEmpty)
             const Text('Henuz ihtiyac yok. + ile ekleyebilirsin.'),
           ...List.generate(wants.length, (index) {
@@ -565,13 +555,18 @@ class _SwapsPageState extends State<SwapsPage> {
       final status = _matchStatusLabel(item['status']?.toString());
       final acceptedByMe = item['acceptedByMe'] == true;
       final acceptedByOther = item['acceptedByOther'] == true;
+      final doneByMe = item['doneByMe'] == true;
+      final doneByOther = item['doneByOther'] == true;
       final matchesQuery = query.isEmpty
           ? true
           : wanted.contains(query) ||
               offered.contains(query) ||
               other.contains(query);
-      final matchesStatus =
-          statusFilter == 'Tumu' ? true : status == statusFilter;
+      final matchesStatus = statusFilter == 'Tumu'
+          ? true
+          : statusFilter == 'Takasi Tamamlamasi Beklenen'
+          ? (status == 'Aktif' && doneByMe && !doneByOther)
+          : status == statusFilter;
       return matchesQuery && matchesStatus;
     }).toList();
   }
@@ -660,7 +655,7 @@ class _SwapsPageState extends State<SwapsPage> {
   Widget _matchCard(Map<String, dynamic> item) {
     final matchId = (item['matchId'] as num?)?.toInt() ?? 0;
     final status = _matchStatusLabel(item['status']?.toString());
-    final percent = _matchPercent(item);
+    final fairness = (item['fairnessPercent'] as num?)?.toInt() ?? _matchPercent(item);
     final reason = _reasonText(
       item['myWanted']?.toString() ?? '',
       item['myOffered']?.toString() ?? '',
@@ -668,6 +663,7 @@ class _SwapsPageState extends State<SwapsPage> {
     final acceptedByMe = item['acceptedByMe'] == true;
     final acceptedByOther = item['acceptedByOther'] == true;
     final doneByMe = item['doneByMe'] == true;
+    final doneByOther = item['doneByOther'] == true;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: InkWell(
@@ -701,14 +697,14 @@ class _SwapsPageState extends State<SwapsPage> {
                 children: [
                   Expanded(
                     child: LinearProgressIndicator(
-                      value: percent / 100,
+                      value: fairness / 100,
                       minHeight: 8,
                       backgroundColor: const Color(0xFFE8F6EF),
                       color: const Color(0xFF1B9C6B),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text('%$percent'),
+                  Text('%$fairness'),
                 ],
               ),
               const SizedBox(height: 6),
@@ -756,6 +752,13 @@ class _SwapsPageState extends State<SwapsPage> {
                     ),
                 ],
               ),
+              if (status == 'Aktif' && doneByMe && !doneByOther) ...[
+                const SizedBox(height: 6),
+                const Text(
+                  'Karsi tarafin takasi tamamlamasi bekleniyor.',
+                  style: TextStyle(color: Color(0xFFB76A00)),
+                ),
+              ],
             ],
           ),
         ),
@@ -1035,28 +1038,60 @@ class _SwapTimelinePageState extends State<SwapTimelinePage> {
                       itemCount: _filtered().length,
                       itemBuilder: (context, i) {
                         final item = _filtered()[i];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          child: ListTile(
-                            title: Text(_titleFromMatch(item)),
-                            subtitle: Text(
-                              'Durum: ${_statusLabel(item['status']?.toString())}',
-                            ),
-                            trailing: OutlinedButton(
-                              onPressed: () async {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => SwapMatchDetailPage(
-                                      api: widget.api,
-                                      match: item,
-                                      onUpdated: _load,
+                        final isDone = _statusLabel(item['status']?.toString()) == 'Tamamlandi';
+                        return Dismissible(
+                          key: ValueKey('timeline-${item['matchId'] ?? i}'),
+                          direction: isDone
+                              ? DismissDirection.endToStart
+                              : DismissDirection.none,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            color: const Color(0xFFE45757),
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          confirmDismiss: isDone
+                              ? (_) async {
+                                  try {
+                                    await widget.api
+                                        .deleteSwapMatch((item['matchId'] as num).toInt());
+                                    return true;
+                                  } catch (_) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Silme islemi basarisiz.'),
+                                        ),
+                                      );
+                                    }
+                                    return false;
+                                  }
+                                }
+                              : null,
+                          onDismissed: (_) => _load(),
+                          child: Card(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: ListTile(
+                              title: Text(_titleFromMatch(item)),
+                              subtitle: Text(
+                                'Durum: ${_statusLabel(item['status']?.toString())}',
+                              ),
+                              trailing: OutlinedButton(
+                                onPressed: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => SwapMatchDetailPage(
+                                        api: widget.api,
+                                        match: item,
+                                        onUpdated: _load,
+                                      ),
                                     ),
-                                  ),
-                                );
-                                _load();
-                              },
-                              child: const Text('Detay'),
+                                  );
+                                  _load();
+                                },
+                                child: const Text('Detay'),
+                              ),
                             ),
                           ),
                         );
@@ -1155,6 +1190,7 @@ class _SwapMatchDetailPageState extends State<SwapMatchDetailPage> {
     final acceptedByMe = widget.match['acceptedByMe'] == true;
     final acceptedByOther = widget.match['acceptedByOther'] == true;
     final doneByMe = widget.match['doneByMe'] == true;
+    final doneByOther = widget.match['doneByOther'] == true;
     final matchId = (widget.match['matchId'] as num?)?.toInt() ?? 0;
     final myReview = reviews.firstWhere(
       (r) => (r['fromUserId'] as num?)?.toInt() == widget.api.currentUserId(),
@@ -1268,6 +1304,21 @@ class _SwapMatchDetailPageState extends State<SwapMatchDetailPage> {
           ),
           const SizedBox(height: 10),
           _statusBadge(statusText),
+          if (statusRaw == 'ACCEPTED' && doneByMe && !doneByOther) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFF1D3A5)),
+              ),
+              child: const Text(
+                'Karsi tarafin takasi tamamlamasi bekleniyor.',
+                style: TextStyle(color: Color(0xFFB76A00)),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           _creditInfoCard(
             myCredit: myCredit,

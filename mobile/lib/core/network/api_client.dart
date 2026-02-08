@@ -243,6 +243,13 @@ class ApiClient {
     );
   }
 
+  Future<void> deleteSwapMatch(int matchId) async {
+    await dio.delete(
+      '/api/swaps/matches/$matchId',
+      queryParameters: {'userId': _userId()},
+    );
+  }
+
   Future<List<Map<String, dynamic>>> swapReviewsForMatch(int matchId) async {
     final response = await dio.get('/api/swaps/matches/$matchId/reviews');
     return (response.data as List)

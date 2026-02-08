@@ -120,6 +120,9 @@ public class SwapMatchService {
             throw new IllegalArgumentException("Bu eslesmeye erisemezsiniz.");
         }
         if (Boolean.TRUE.equals(match.getAcceptedByA()) && Boolean.TRUE.equals(match.getAcceptedByB())) {
+            // kilitle: artik bu talepler yeniden eslesmesin
+            updateRequestStatus(match.getRequestAId(), "LOCKED");
+            updateRequestStatus(match.getRequestBId(), "LOCKED");
             if (settlement.requiredCredits > 0) {
                 creditService.settleMatch(
                         match.getId(),
@@ -130,9 +133,6 @@ public class SwapMatchService {
                 );
             }
             match.setStatus("ACCEPTED");
-            // Remove requests from pool once matched to prevent re-matching
-            swapRequestRepository.deleteById(match.getRequestAId());
-            swapRequestRepository.deleteById(match.getRequestBId());
         }
         match.setUpdatedAt(LocalDateTime.now());
         return toDto(swapMatchRepository.save(match), userId);
@@ -157,9 +157,25 @@ public class SwapMatchService {
         }
         if (Boolean.TRUE.equals(match.getDoneByA()) && Boolean.TRUE.equals(match.getDoneByB())) {
             match.setStatus("DONE");
+            // tamamlandi: istegi DONE yap
+            updateRequestStatus(match.getRequestAId(), "DONE");
+            updateRequestStatus(match.getRequestBId(), "DONE");
         }
         match.setUpdatedAt(LocalDateTime.now());
         return toDto(swapMatchRepository.save(match), userId);
+    }
+
+    @Transactional
+    public void deleteDoneMatch(Long matchId, Long userId) {
+        SwapMatchEntity match = swapMatchRepository.findById(matchId)
+                .orElseThrow(() -> new IllegalArgumentException("Eslesme bulunamadi."));
+        if (!"DONE".equals(match.getStatus())) {
+            throw new IllegalArgumentException("Sadece tamamlanan takas silinebilir.");
+        }
+        if (!userId.equals(match.getUserAId()) && !userId.equals(match.getUserBId())) {
+            throw new IllegalArgumentException("Bu takasi silemezsiniz.");
+        }
+        swapMatchRepository.delete(match);
     }
 
     @Transactional
@@ -312,5 +328,13 @@ public class SwapMatchService {
         private Long receiverUserId;
         private int requiredCredits;
         private String description;
+    }
+
+    private void updateRequestStatus(Long requestId, String status) {
+        if (requestId == null) return;
+        SwapRequestEntity req = swapRequestRepository.findById(requestId).orElse(null);
+        if (req == null) return;
+        req.setStatus(status);
+        swapRequestRepository.save(req);
     }
 }
